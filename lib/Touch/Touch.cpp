@@ -103,11 +103,11 @@ uint8_t TP::tp_scan(uint8_t chCoordType)
 				s_tTouch.hwYpos =  Tft.LCD_HEIGHT - (s_tTouch.fYfac * sTP_Draw_Xpoint + s_tTouch.iYoff);
 			}
 
-			Serial.println(s_tTouch.hwXpos);
-			Serial.println(s_tTouch.hwYpos);
-			Serial.println();
-			
-			
+			#ifdef DEBUG
+				Serial.println(s_tTouch.hwXpos);
+				Serial.println(s_tTouch.hwYpos);
+				Serial.println();
+			#endif
 		}
 		if (0 == (s_tTouch.chStatus & TP_PRESS_DOWN)) {
 			s_tTouch.chStatus = TP_PRESS_DOWN | TP_PRESSED;
@@ -331,6 +331,11 @@ void TP::tp_draw_board(void)
 		}
 	}
 }
+
+tp_dev_t &TP::get_touch_params() {
+	return s_tTouch;
+}
+
 
 TP Tp = TP();
 
