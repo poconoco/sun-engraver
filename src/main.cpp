@@ -1,10 +1,13 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include <LCD.h>
 #include <SD.h>
+#include <EEPROM.h>
 
 #define DEBUG
+//#define CALIBRATE_TOUCH
 
+#include "Touch.h"
+#include "LCD.h"
 #include "XPT2046.h"
 #include "IK2.h"
 
@@ -22,6 +25,7 @@ const float arm2ZeroAngle = 82+60;
 void testIK();
 void getBmpFileList(String* destList, int& count, int maxCount);
 void displayList(String* list, int count);
+int getSelectedIndex();
 
 void setup() {
 
@@ -35,6 +39,7 @@ void setup() {
   int bmpCount = 0;
   getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
   displayList(bmpFiles, bmpCount);
+  getSelectedIndex();
 
   while (true) {}
 }
@@ -87,27 +92,82 @@ void getBmpFileList(String* destList, int& count, int maxCount) {
 }
 
 void displayList(String* list, int count) {
-    SPI.setDataMode(SPI_MODE3);
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setClockDivider(SPI_CLOCK_DIV4);
-    SPI.begin();
+  SPI.setDataMode(SPI_MODE3);
+  SPI.setBitOrder(MSBFIRST);
+  SPI.setClockDivider(SPI_CLOCK_DIV4);
+  SPI.begin();
 
-    Tft.lcd_init();
-    Tft.setRotation(Rotation_270_D);
-    Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_init();
+  Tft.setRotation(Rotation_270_D);
+  Tft.lcd_clear_screen(BLACK);
 
-    for (int i = 0; i < count; i++) {
-        String filename = list[i];
-        int x = 20;
-        int y = 10 + i * 21;
+  for (int i = 0; i < count; i++) {
+      String filename = list[i];
+      int x = 20;
+      int y = 10 + i * 21;
 
-        if (i % 2 == 0) {
-            Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, WHITE);
-        } else {
-            Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, YELLOW);
-        }
-    }
+      if (i % 2 == 0) {
+          Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, WHITE);
+      } else {
+          Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, YELLOW);
+      }
   }
+}
+
+void calibrateTouch() {
+    Tp.tp_init();
+    const int baseAddress = 0x00;
+    int pointer = 0;
+
+    #ifdef CALIBRATE_TOUCH
+      #ifdef DEBUG
+        Serial.println("Starting calibration...");
+      #endif
+
+      Tp.tp_adjust();
+      Tp.tp_dialog();
+
+      // Store calibration in the EEPROM
+      tp_dev_t &touchParams = Tp.get_touch_params();
+      EEPROM.put(baseAddress + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
+      EEPROM.put(baseAddress + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
+      EEPROM.put(baseAddress + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
+      EEPROM.put(baseAddress + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
+      #ifdef DEBUG
+        Serial.println("Touch calibration saved to EEPROM: ");
+        Serial.print("  - iXoff: "); Serial.println(touchParams.iXoff);
+        Serial.print("  - iYoff: "); Serial.println(touchParams.iYoff);
+        Serial.print("  - fXfac: "); Serial.println(touchParams.fXfac);
+        Serial.print("  - fYfac: "); Serial.println(touchParams.fYfac);
+        Serial.println();
+      #endif
+    #else
+
+      tp_dev_t &touchParams = Tp.get_touch_params();
+
+      EEPROM.get(baseAddress + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
+      EEPROM.get(baseAddress + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
+      EEPROM.get(baseAddress + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
+      EEPROM.get(baseAddress + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
+
+      #ifdef DEBUG
+        Serial.println("Touch calibration loaded from EEPROM");
+        Serial.print("  - iXoff: "); Serial.println(touchParams.iXoff);
+        Serial.print("  - iYoff: "); Serial.println(touchParams.iYoff);
+        Serial.print("  - fXfac: "); Serial.println(touchParams.fXfac);
+        Serial.print("  - fYfac: "); Serial.println(touchParams.fYfac);
+      #endif
+    #endif
+}
+
+int getSelectedIndex() {
+  calibrateTouch();
+
+  Tp.tp_dialog();
+  while (true) {
+    Tp.tp_draw_board();
+  }
+}
 
 void testIK() {
 

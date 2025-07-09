@@ -36,11 +36,13 @@ private :
 
 public:
 	
+	
 
 	void tp_init(void);
 	void tp_adjust(void);
 	void tp_dialog(void);
 	void tp_draw_board(void);
+	tp_dev_t &get_touch_params();
 };
 
 extern TP Tp;
