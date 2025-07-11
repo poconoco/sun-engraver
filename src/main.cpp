@@ -4,8 +4,8 @@
 
 #include "IK2.h"
 
-const int arm1Pin = 10;
-const int arm2Pin = 11;
+const int arm1Pin = 6;
+const int arm2Pin = 8;
 
 const float arm1ZeroAngle = 95;
 const float arm2ZeroAngle = 82+60;
@@ -32,7 +32,7 @@ void setup() {
       servoArm2
   );
 
-  ik2dof.write(40, 60);
+ // ik2dof.write(40, 60);
 
 //  ik2dof.write(75, 60);
 
@@ -53,7 +53,7 @@ void setup() {
 
     delay(10);
 
-    angle += 1;
+    angle += 0.02;
     if (angle > 360) {
       angle = 0;
     }
