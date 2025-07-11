@@ -336,6 +336,17 @@ tp_dev_t &TP::get_touch_params() {
 	return s_tTouch;
 }
 
+bool TP::is_pressed(uint16_t &x, uint16_t &y) {
+	tp_scan(0);
+	if (s_tTouch.chStatus & TP_PRESS_DOWN) {
+		x = s_tTouch.hwXpos;
+		y = s_tTouch.hwYpos;
+		return true;
+	}
+
+	return false;
+}
+
 
 TP Tp = TP();
 
