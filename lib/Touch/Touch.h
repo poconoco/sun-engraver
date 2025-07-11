@@ -43,6 +43,7 @@ public:
 	void tp_dialog(void);
 	void tp_draw_board(void);
 	tp_dev_t &get_touch_params();
+	bool is_pressed(uint16_t &x, uint16_t &y);
 };
 
 extern TP Tp;
