@@ -3,7 +3,7 @@
 #include <SD.h>
 #include <EEPROM.h>
 
-#define DEBUG
+//#define DEBUG
 //#define CALIBRATE_TOUCH
 
 #include "Touch.h"
@@ -17,8 +17,8 @@
 
 #define MAX_FILES_COUNT 11
 
-const int arm1Pin = 10;
-const int arm2Pin = 11;
+const int arm1Pin = 6;
+const int arm2Pin = 8;
 
 const int sdCsPin = 5;
 
@@ -53,9 +53,11 @@ void setup() {
   initializeDisplay();
   selectFile(bmpFiles, bmpCount);
 
+
   while (true) {
     delay(1000);
   }
+  //testIK();
 }
 
 int selectFile(String* list, int count) {
@@ -284,7 +286,7 @@ void testIK() {
 
     delay(10);
 
-    angle += 1;
+    angle += 0.2;
     if (angle > 360) {
       angle = 0;
     }

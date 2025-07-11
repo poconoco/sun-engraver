@@ -27,7 +27,7 @@ public:
     }
 
     void write(float x, float y) {
-        #ifdef DEBUG
+        #ifdef IK_DEBUG
             Serial.println("  -- Reaching for coordinates:");
             Serial.print(x);
             Serial.print(", ");
@@ -38,13 +38,13 @@ public:
         // Get coordinates of the arm1-arm2 joint
         IK2DOF::Point2D joint = circleIntersection(x, y, _arm1Length, _arm2Length);
         if (joint.invalid) {
-            #ifdef DEBUG
+            #ifdef IK_DEBUG
                 Serial.println("No solution found for the given coordinates.");
             #endif
             return;
         }
 
-        #ifdef DEBUG
+        #ifdef IK_DEBUG
             Serial.println("Got the following solution:");
             Serial.print(joint.x);
             Serial.print(", "); 
@@ -58,7 +58,7 @@ public:
         float arm1Angle = _arm1ZeroAngle - 90 + (_arm1Inverted ? -1.0 : 1.0) * arm1AbsAngle;
         float arm2Angle = _arm2ZeroAngle - 180 + (_arm2Inverted ? -1.0 : 1.0) * (180 - arm1AbsAngle + arm2AbsAngle);
 
-        #ifdef DEBUG
+        #ifdef IK_DEBUG
             Serial.println("Got the following absolute angles:");
             Serial.print(arm1AbsAngle);
             Serial.print(", ");
