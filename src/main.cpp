@@ -30,15 +30,23 @@ const uint16_t fileRowHeight = 21; // Height of each file row in pixels
 const uint16_t fileListX = 20; // X position of the file list
 const uint16_t fileListY = 10; // Y position of the first file row
 
+// Should be square (PX_MAX - PX_MIN == PY_MAX - PY_MIN)
+const float lensXmin = 50;
+const float lensXmax = 110;
+const float lensYmin = -20;
+const float lensYmax = 40;
 
-void testIK();
-void getBmpFileList(String* destList, int& count, int maxCount);
+void getBmpFileList(String*, int&, int);
 void initializeDisplay();
 void calibrateTouch();
-void displayList(String* list, int count);
-int getSelectedIndex(String* list, int count);
-int selectFile(String* list, int count);
-bool confirmSelection();
+void displayList(String*, int);
+int getSelectedIndex(String*, int);
+int selectFile(String*, int);
+bool confirmSelection(String *, int);
+int selectSpeed();
+bool prepFocusLens();
+bool focusLens(IK2DOF&);
+bool doPrint(IK2DOF&, int);
 
 void setup() {
 
@@ -46,7 +54,22 @@ void setup() {
   Serial.begin(9600);
 #endif
 
-//  testIK();
+  Servo servoArm1;
+  Servo servoArm2;
+
+  servoArm1.attach(arm1Pin, 550, 2500);
+  servoArm2.attach(arm2Pin, 550, 2450);
+
+  IK2DOF ik2dof(
+      70,  // arm1 length
+      70,  // arm2 length
+      arm1ZeroAngle,
+      arm2ZeroAngle,
+      false,  // arm1 not inverted
+      false,  // arm2 not inverted
+      servoArm1,
+      servoArm2
+  );
 
   String bmpFiles[MAX_FILES_COUNT];
   int bmpCount = 0;
@@ -54,56 +77,64 @@ void setup() {
   initializeDisplay();
 
   int selectedIndex = -1;
+  int selectedSpeed = -1;  // From 1 to 10
   while (true) {
     selectedIndex = selectFile(bmpFiles, bmpCount);
-    if (confirmSelection())
-      break;
+    while (confirmSelection(bmpFiles, selectedIndex)) {
+      while (true) {
+        selectedSpeed = selectSpeed();
+        if (selectedSpeed > 0) {
+          while (prepFocusLens()) {
+            while (focusLens(ik2dof)) {
+              if (!doPrint(ik2dof, selectedSpeed))
+                break;
+            }
+          }
+        } else {
+          break;
+        }
+      }
+    }
   }
-
-
-
-  while (true) {
-    delay(1000);
-  }
-  //testIK();
 }
 
 int selectFile(String* list, int count) {
   while (true) {
     displayList(list, count);
     const int idx = getSelectedIndex(list, count);
-    const String filename = list[idx];
-
-    Tft.lcd_clear_screen(BLACK);
-
-    File bmpFile = SD.open(filename);
-
-    if (! bmpFile) {
-        bmpFile.close();
-        Tft.lcd_display_string(20, 50, (const uint8_t*)"Failed to open file!", FONT_1608, RED);
-        delay(2000);
-        continue;
-    }
-
-    if(! bmpReadHeader(bmpFile)) {
-      bmpFile.close();
-      Tft.lcd_display_string(20, 50, (const uint8_t*)"Bad header,", FONT_1608, RED);
-      Tft.lcd_display_string(20, 70, (const uint8_t*)"bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", FONT_1608, RED);
-      Tft.lcd_display_string(20, 90, (const uint8_t*)"not be compressed and be 24bit", FONT_1608, RED);
-      delay(2000);
-      continue;
-    }
-
-    displayPreview(bmpFile);
-    bmpFile.close();
-
     return idx;
   }
 
   return -1; // Should never reach here
 }
 
-bool confirmSelection() {
+bool confirmSelection(String *list, int idx) {
+
+  const String filename = list[idx];
+
+  Tft.lcd_clear_screen(BLACK);
+
+  File bmpFile = SD.open(filename);
+
+  if (! bmpFile) {
+      bmpFile.close();
+      Tft.lcd_display_string(20, 50, (const uint8_t*)"Failed to open file!", FONT_1608, RED);
+      delay(2000);
+      return false;
+  }
+
+  if(! bmpReadHeader(bmpFile)) {
+    bmpFile.close();
+    Tft.lcd_display_string(20, 50, (const uint8_t*)"Bad header,", FONT_1608, RED);
+    Tft.lcd_display_string(20, 70, (const uint8_t*)"bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", FONT_1608, RED);
+    Tft.lcd_display_string(20, 90, (const uint8_t*)"not be compressed and be 24bit", FONT_1608, RED);
+    delay(2000);
+    return false;
+  }
+
+  displayPreview(bmpFile);
+  bmpFile.close();
+
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
@@ -116,6 +147,139 @@ bool confirmSelection() {
       return false;
     }
   }
+}
+
+int selectSpeed() {
+  Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Set speed 1..10:", FONT_1608, WHITE);
+
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  const int speedX = Tft.LCD_WIDTH / 2 - 30 / 2;
+  const int speedY = Tft.LCD_HEIGHT / 2 - 20;
+
+  Button dec(speedX - 50, speedY, 30, 30, "-");
+  Button inc(speedX + 50, speedY, 30, 30, "+");
+  Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
+  Tft.lcd_fill_rect(speedX+1, speedY+1, 30-2, 30-2, GRAY);
+
+  int speed = 5;
+  bool redraw = true;
+  while (true) {
+
+    if (redraw) {
+      Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GRAY);
+      Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, WHITE);
+      redraw = false;
+    }
+
+    if (dec.isClicked()) {
+      if (speed > 1) {
+        speed--;
+        redraw = true;
+      }
+    }
+
+    if (inc.isClicked()) {
+      if (speed < 10) {
+        speed++;
+        redraw = true;
+      }
+    }
+
+    if (confirmButton.isClicked()) {
+      return speed;
+    }
+
+    if (backButton.isClicked()) {
+      return -1;
+    }
+  }
+}
+
+bool prepFocusLens() {
+  Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Cover lens with", FONT_1608, WHITE);
+  Tft.lcd_display_string(100, 70, (const uint8_t*)"focusing cap", FONT_1608, WHITE);
+
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  while (true) {
+    if (confirmButton.isClicked()) {
+      return true;
+    }
+
+    if (backButton.isClicked()) {
+      return false;
+    }
+  }
+}
+
+bool focusLens(IK2DOF& ik2dof) {
+  Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Focus lens...", FONT_1608, WHITE);
+
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  while (true) {
+    const float maxDelta = lensXmax - lensXmin;
+    // Move along four sides of square
+    for (int direction = 0; direction < 4; direction++) {
+      for (float i = 0; i < maxDelta; i++) {
+        float x;
+        float y;
+        switch (direction) {
+          case 0:
+            x = lensXmin + i;
+            y = lensYmin;
+            break;
+          case 1:
+            x = lensXmax;
+            y = lensYmin + i;
+            break;
+          case 2:
+            x = lensXmax - i;
+            y = lensYmax;
+            break;
+          case 3:
+            x = lensXmin;
+            y = lensYmax - i;
+            break;
+        }
+
+        ik2dof.write(x, y);
+        if (confirmButton.isClicked()) {
+          return true;
+        }
+
+        if (backButton.isClicked()) {
+          return false;
+        }
+        delay(10);
+      }
+    }
+  }
+}
+
+bool doPrint(IK2DOF& ik2dof, int speed) {
+  Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Printing...", FONT_1608, WHITE);
+
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  while (true) {
+    if (confirmButton.isClicked()) {
+      return true;
+    }
+
+    if (backButton.isClicked()) {
+      return false;
+    }
+  }  
 }
 
 
@@ -268,51 +432,4 @@ int getSelectedIndex(String* list, int count) {
   }
 
   return -1; // Should never get here
-}
-
-void testIK() {
-
-  Servo servoArm1;
-  Servo servoArm2;
-
-  servoArm1.attach(arm1Pin, 550, 2500);
-  servoArm2.attach(arm2Pin, 550, 2450);
-
-  IK2DOF ik2dof(
-      70,  // arm1 length
-      70,  // arm2 length
-      arm1ZeroAngle,
-      arm2ZeroAngle,
-      false,  // arm1 not inverted
-      false,  // arm2 not inverted
-      servoArm1,
-      servoArm2
-  );
-
-  //  servoArm1.write(arm1ZeroAngle);
-//  servoArm2.write(arm2ZeroAngle);
-
-//  ik2dof.write(40, 60);
-//  ik2dof.write(75, 60);
-
-
-  float angle = 0;
-  float cx = 70;
-  float cy = 70;
-  float r = 40;
-
-  while (true) {
-
-    float x = cx + r * cos(radians(angle));
-    float y = cy + r * sin(radians(angle));
-
-    ik2dof.write(x, y);
-
-    delay(10);
-
-    angle += 0.2;
-    if (angle > 360) {
-      angle = 0;
-    }
-  }
 }

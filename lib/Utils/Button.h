@@ -1,4 +1,4 @@
-
+#include <Arduino.h>
 
 class Button {
     public:
@@ -6,10 +6,10 @@ class Button {
         bool isClicked();
     
     private:
-        int _x;
-        int _y;
-        int _width;
-        int _height;
+        uint16_t _x;
+        uint16_t _y;
+        uint16_t _width;
+        uint16_t _height;
         const char* _labelText;
         bool _prevPressed = false;
 
