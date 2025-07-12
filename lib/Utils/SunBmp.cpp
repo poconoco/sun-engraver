@@ -75,6 +75,11 @@ bool SunBmp::bmpReadHeader() {
 }
 
 void SunBmp::displayPreview() {
+    if (_image_offset == 0) {
+        Serial.println("Image offset is not read fron header");
+        return;
+    }
+
     _file.seek(_image_offset);
 
     uint32_t time = millis();
