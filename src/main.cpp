@@ -41,6 +41,10 @@ const uint16_t imageWidth = 100;
 const uint16_t imageHeight = 100;
 const uint16_t imageBuffSize = 25;  // Should be a divisor of imageHeight
 
+const float speedSkip = 20;  // mm/s
+const float speedLight = 5;  // mm/s
+const float speedDark = 1.4;  // mm/s
+
 void getBmpFileList(String*, int&, int);
 void initializeDisplay();
 void calibrateTouch();
@@ -51,13 +55,14 @@ bool confirmSelection(String *, int);
 int selectSpeed();
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
-bool doPrint(IK2DOF&, int);
+bool doBurn(IK2DOF&, int, String);
 
 void setup() {
 
-#ifdef DEBUG
+  #ifdef DEBUG
+    Serial.begin(9600);
+  #endif
   Serial.begin(9600);
-#endif
 
   Servo servoArm1;
   Servo servoArm2;
@@ -83,6 +88,7 @@ void setup() {
 
   int selectedIndex = -1;
   int selectedSpeed = -1;  // From 1 to 10
+  bool done = false;
   while (true) {
     selectedIndex = selectFile(bmpFiles, bmpCount);
     while (confirmSelection(bmpFiles, selectedIndex)) {
@@ -91,14 +97,24 @@ void setup() {
         if (selectedSpeed > 0) {
           while (prepFocusLens()) {
             while (focusLens(ik2dof)) {
-              if (!doPrint(ik2dof, selectedSpeed))
-                break;
+              if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
+                done = true;
+              break;
             }
+
+            if (done)
+              break;
           }
         } else {
           break;
         }
+
+        if (done)
+          break;
       }
+
+      if (done)
+        break;
     }
   }
 }
@@ -269,22 +285,66 @@ bool focusLens(IK2DOF& ik2dof) {
   }
 }
 
-bool doPrint(IK2DOF& ik2dof, int speed) {
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
   Tft.lcd_clear_screen(BLACK);
   Tft.lcd_display_string(100, 50, (const uint8_t*)"Burning...", FONT_1608, WHITE);
 
-  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
-  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Abort");
 
-  while (true) {
-    if (confirmButton.isClicked()) {
-      return true;
-    }
+  File bmpFile = SD.open(filename);
 
-    if (backButton.isClicked()) {
+  if (! bmpFile) {
+      bmpFile.close();
+      Tft.lcd_display_string(20, 50, (const uint8_t*)"Failed to open file!", FONT_1608, RED);
+      delay(2000);
       return false;
-    }
-  }  
+  }
+
+  SunBmp sunBmp(bmpFile, imageWidth, imageHeight, imageBuffSize);
+
+  if(! sunBmp.bmpReadHeader()) {
+    bmpFile.close();
+    Tft.lcd_display_string(20, 50, (const uint8_t*)"Bad header", FONT_1608, RED);
+    delay(2000);
+    return false;
+  }
+
+  bool done = sunBmp.burnImage([&ik2dof, speedFactor, &backButton](int imageX, int imageY, uint8_t intensity, bool arm) {
+
+    Tft.lcd_draw_line(imageX, imageY, imageX+1, imageY, intensity*intensity);
+    const float lensX = mapFloat(imageX, 0, imageWidth, lensXmin, lensXmax);
+    const float lensY = mapFloat(imageY, 0, imageHeight, lensYmin, lensYmax);
+    
+    ik2dof.write(lensX, lensY);
+    float speed;  // In mm/second
+    if (intensity > 0)
+      speed = mapFloat((float)intensity, 0.0, 255.0, speedLight, speedDark); 
+    else
+      speed = speedSkip;
+
+    float pixelDistance = (lensXmax - lensXmin) / (float)imageWidth;  // In mm
+    float deltaT = pixelDistance / (speed * ((float)speedFactor / 5.0));  // In seconds
+
+    #ifdef DEBUG
+      Serial.print("intensity: ");
+      Serial.println(intensity);
+    #endif
+
+    delay((int)(deltaT * 1000.0));
+
+    if (backButton.isClicked())
+      return false;
+
+    return true;
+  });
+
+  bmpFile.close();
+
+  return done;
 }
 
 
