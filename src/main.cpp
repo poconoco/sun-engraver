@@ -36,6 +36,11 @@ const float lensXmax = 110;
 const float lensYmin = -20;
 const float lensYmax = 40;
 
+// Also should be square
+const uint16_t imageWidth = 100;
+const uint16_t imageHeight = 100;
+const uint16_t imageBuffSize = 25;  // Should be a divisor of imageHeight
+
 void getBmpFileList(String*, int&, int);
 void initializeDisplay();
 void calibrateTouch();
@@ -111,9 +116,7 @@ int selectFile(String* list, int count) {
 bool confirmSelection(String *list, int idx) {
 
   const String filename = list[idx];
-
   Tft.lcd_clear_screen(BLACK);
-
   File bmpFile = SD.open(filename);
 
   if (! bmpFile) {
@@ -123,7 +126,9 @@ bool confirmSelection(String *list, int idx) {
       return false;
   }
 
-  if(! bmpReadHeader(bmpFile)) {
+  SunBmp sunBmp(bmpFile, imageWidth, imageHeight, imageBuffSize);
+
+  if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
     Tft.lcd_display_string(20, 50, (const uint8_t*)"Bad header,", FONT_1608, RED);
     Tft.lcd_display_string(20, 70, (const uint8_t*)"bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", FONT_1608, RED);
@@ -132,7 +137,7 @@ bool confirmSelection(String *list, int idx) {
     return false;
   }
 
-  displayPreview(bmpFile);
+  sunBmp.displayPreview();
   bmpFile.close();
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
@@ -219,7 +224,7 @@ bool prepFocusLens() {
 
 bool focusLens(IK2DOF& ik2dof) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Focus lens...", FONT_1608, WHITE);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Now focus lens", FONT_1608, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -266,7 +271,7 @@ bool focusLens(IK2DOF& ik2dof) {
 
 bool doPrint(IK2DOF& ik2dof, int speed) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Printing...", FONT_1608, WHITE);
+  Tft.lcd_display_string(100, 50, (const uint8_t*)"Burning...", FONT_1608, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
