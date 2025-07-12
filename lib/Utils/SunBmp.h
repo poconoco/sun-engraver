@@ -1,10 +1,17 @@
 #include <SD.h>
 
-#define SUN_BMP_WIDTH 100
-#define SUN_BMP_HEIGHT 100
+class SunBmp {
+    public:
+        SunBmp(SDLib::File &file, uint16_t width, uint16_t height, uint16_t pixelBuffSize);
+        bool bmpReadHeader();
+        void displayPreview();
+    private:
+        SDLib::File &_file;
+        uint16_t _width;
+        uint16_t _height;
+        uint16_t _pixelBuffSize;
+        uint32_t _image_offset;
 
-#define BUFFPIXEL    25   // must be a divisor of HEIGHT 
-#define BUFFPIXEL_X3 75   // BUFFPIXELx3
-
-bool bmpReadHeader(SDLib::File f);
-void displayPreview(SDLib::File f);
+        uint16_t read16(SDLib::File &f);
+        uint32_t read32(SDLib::File &f);
+};
