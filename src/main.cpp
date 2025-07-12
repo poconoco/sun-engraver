@@ -11,6 +11,7 @@
 #include "XPT2046.h"
 #include "IK2.h"
 #include "SunBmp.h"
+#include "Button.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -36,8 +37,8 @@ void initializeDisplay();
 void calibrateTouch();
 void displayList(String* list, int count);
 int getSelectedIndex(String* list, int count);
-
 int selectFile(String* list, int count);
+bool confirmSelection();
 
 void setup() {
 
@@ -51,7 +52,14 @@ void setup() {
   int bmpCount = 0;
   getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
   initializeDisplay();
-  selectFile(bmpFiles, bmpCount);
+
+  int selectedIndex = -1;
+  while (true) {
+    selectedIndex = selectFile(bmpFiles, bmpCount);
+    if (confirmSelection())
+      break;
+  }
+
 
 
   while (true) {
@@ -94,6 +102,22 @@ int selectFile(String* list, int count) {
 
   return -1; // Should never reach here
 }
+
+bool confirmSelection() {
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  while (true) {
+    if (confirmButton.isClicked()) {
+      return true;
+    }
+
+    if (backButton.isClicked()) {
+      return false;
+    }
+  }
+}
+
 
 void getBmpFileList(String* destList, int& count, int maxCount) {
   count = 0;
