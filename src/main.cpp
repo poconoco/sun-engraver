@@ -41,9 +41,9 @@ const uint16_t imageWidth = 100;
 const uint16_t imageHeight = 100;
 const uint16_t imageBuffSize = 25;  // Should be a divisor of imageHeight
 
-const float speedSkip = 20;  // mm/s
-const float speedLight = 5;  // mm/s
-const float speedDark = 1.4;  // mm/s
+const float speedSkip = 50;  // mm/s
+const float speedBurn = 2.0;  // mm/s
+const float burnStartDelay = 250;  // ms, additional time to start dark pixel after white
 
 void getBmpFileList(String*, int&, int);
 void initializeDisplay();
@@ -56,13 +56,13 @@ int selectSpeed();
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
 bool doBurn(IK2DOF&, int, String);
+void drawQuadPoint(uint16_t, uint16_t, uint16_t);
 
 void setup() {
 
   #ifdef DEBUG
     Serial.begin(9600);
   #endif
-  Serial.begin(9600);
 
   Servo servoArm1;
   Servo servoArm2;
@@ -291,7 +291,7 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
 
 bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Burning...", FONT_1608, WHITE);
+  Tft.lcd_display_string(120, Tft.LCD_HEIGHT - 27, (const uint8_t*)"Burning...", FONT_1608, WHITE);
 
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Abort");
 
@@ -313,19 +313,18 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
     return false;
   }
 
-  bool done = sunBmp.burnImage([&ik2dof, speedFactor, &backButton](int imageX, int imageY, uint8_t intensity, bool arm) {
+  bool lastBurn = false;
+  bool done = sunBmp.burnImage([&ik2dof, speedFactor, &lastBurn, &backButton](int imageX, int imageY, bool burn, bool arm) {
 
-    Tft.lcd_draw_line(imageX, imageY, imageX+1, imageY, intensity*intensity);
+    const uint16_t progressViewX = (Tft.LCD_WIDTH - imageWidth * 2) / 2 + imageX * 2;
+    const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - imageHeight * 2) / 2 + 20)) - imageY * 2;
+    drawQuadPoint(progressViewX, progressViewY, YELLOW);
+
     const float lensX = mapFloat(imageX, 0, imageWidth, lensXmin, lensXmax);
     const float lensY = mapFloat(imageY, 0, imageHeight, lensYmin, lensYmax);
     
     ik2dof.write(lensX, lensY);
-    float speed;  // In mm/second
-    if (intensity > 0)
-      speed = mapFloat((float)intensity, 0.0, 255.0, speedLight, speedDark); 
-    else
-      speed = speedSkip;
-
+    float speed = burn ? speedBurn : speedSkip;  // In mm/second
     float pixelDistance = (lensXmax - lensXmin) / (float)imageWidth;  // In mm
     float deltaT = pixelDistance / (speed * ((float)speedFactor / 5.0));  // In seconds
 
@@ -334,7 +333,13 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       Serial.println(intensity);
     #endif
 
+    if (burn && !lastBurn)
+      delay(burnStartDelay);
+
     delay((int)(deltaT * 1000.0));
+
+    drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
+    lastBurn = burn;
 
     if (backButton.isClicked())
       return false;
@@ -344,9 +349,20 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
 
   bmpFile.close();
 
+  if (done) {
+    Tft.lcd_display_string(20, 50, (const uint8_t*)"COMPLETED", FONT_1608, GREEN);
+    delay(2000);
+  }
+
   return done;
 }
 
+void drawQuadPoint(uint16_t x, uint16_t y, uint16_t color) {
+  Tft.lcd_draw_point(x, y, color);
+  Tft.lcd_draw_point(x+1, y, color);
+  Tft.lcd_draw_point(x, y+1, color);
+  Tft.lcd_draw_point(x+1, y+1, color);
+}
 
 void getBmpFileList(String* destList, int& count, int maxCount) {
   count = 0;
