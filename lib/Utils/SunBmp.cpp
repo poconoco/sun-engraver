@@ -8,6 +8,7 @@ SunBmp::SunBmp(SDLib::File &file, uint16_t width, uint16_t height, uint16_t pixe
     , _width(width)
     , _height(height)
     , _pixelBuffSize(pixelBuffSize)
+    , _blackThreshold(200)  // If avg color intensity (0..255) less than this threshold, use black
 {}
 
 bool SunBmp::bmpReadHeader() {
@@ -105,9 +106,9 @@ void SunBmp::displayPreview() {
                     __color[k] = __color[k]<<6 | (sdbuffer[buffidx+1]>>2);      // green
                     __color[k] = __color[k]<<5 | (sdbuffer[buffidx+0]>>3);      // blue
                 #else
-                    // Convert to greyscale for preview
-                    uint32_t grey = (sdbuffer[buffidx+2] + sdbuffer[buffidx+1] + sdbuffer[buffidx+0]) / 3;
-                    __color[k] = (grey>>3) << 11 | (grey>>2) << 5 | (grey>>3);
+                    // Convert to monochrome for preview
+                    uint32_t allColors = (sdbuffer[buffidx+2] + sdbuffer[buffidx+1] + sdbuffer[buffidx+0]);
+                    __color[k] = (allColors > _blackThreshold * 3) ? WHITE : BLACK;
                 #endif
                 buffidx += 3;
             }
