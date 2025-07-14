@@ -12,6 +12,7 @@
 #include "IK2.h"
 #include "SunBmp.h"
 #include "Button.h"
+#include "FloatServo.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -33,8 +34,8 @@ const uint16_t fileListY = 10; // Y position of the first file row
 // Should be square (PX_MAX - PX_MIN == PY_MAX - PY_MIN)
 const float lensXmin = 50;
 const float lensXmax = 110;
-const float lensYmin = -20;
-const float lensYmax = 40;
+const float lensYmin = -15;
+const float lensYmax = 45;
 
 // Also should be square
 const uint16_t imageWidth = 100;
@@ -64,11 +65,8 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  Servo servoArm1;
-  Servo servoArm2;
-
-  servoArm1.attach(arm1Pin, 550, 2500);
-  servoArm2.attach(arm2Pin, 550, 2450);
+  FloatServo servoArm1(arm1Pin, 550, 2500);
+  FloatServo servoArm2(arm2Pin, 550, 2450);
 
   IK2DOF ik2dof(
       70,  // arm1 length
@@ -245,10 +243,29 @@ bool focusLens(IK2DOF& ik2dof) {
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
+  ik2dof.write(lensXmin, lensYmin);
+
   while (true) {
     const float maxDelta = lensXmax - lensXmin;
     // Move along four sides of square
     for (int direction = 0; direction < 4; direction++) {
+
+      // A timeout at the corner to allow for focusing at the corners easier
+      // Have to process buttons inside it as well, to not degrade responsiveness
+      for (uint8_t i = 0; i < 100; i++) {
+        if (confirmButton.isClicked()) {
+          return true;
+        }
+
+        if (backButton.isClicked()) {
+          ik2dof.detach();
+          return false;
+        }
+        delay(10);
+      }
+
+      delay(1000);
+
       for (float i = 0; i < maxDelta; i++) {
         float x;
         float y;
@@ -277,6 +294,7 @@ bool focusLens(IK2DOF& ik2dof) {
         }
 
         if (backButton.isClicked()) {
+          ik2dof.detach();
           return false;
         }
         delay(10);
@@ -285,15 +303,13 @@ bool focusLens(IK2DOF& ik2dof) {
   }
 }
 
-float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
+  const uint16_t statusX = 120;
+  const uint16_t statusY = Tft.LCD_HEIGHT - 27;
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(120, Tft.LCD_HEIGHT - 27, (const uint8_t*)"Burning...", FONT_1608, WHITE);
+  Tft.lcd_display_string(statusX, statusY, (const uint8_t*)"Burning...", FONT_1608, WHITE);
 
-  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Abort");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
   File bmpFile = SD.open(filename);
 
@@ -313,48 +329,70 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
     return false;
   }
 
-  bool lastBurn = false;
-  bool done = sunBmp.burnImage([&ik2dof, speedFactor, &lastBurn, &backButton](int imageX, int imageY, bool burn, bool arm) {
+  #ifdef SKIP_BURNING
+    ik2dof.write(lensXmin, lensYmin);
+    bool done = true;
+  #else
+    bool lastBurn = false;
+    bool done = sunBmp.burnImage([&ik2dof, speedFactor, &lastBurn, &backButton](int imageX, int imageY, bool burn, bool arm) {
+      const uint16_t progressViewX = (Tft.LCD_WIDTH - imageWidth * 2) / 2 + imageX * 2;
+      const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - imageHeight * 2) / 2 + 20)) - imageY * 2;
+      drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-    const uint16_t progressViewX = (Tft.LCD_WIDTH - imageWidth * 2) / 2 + imageX * 2;
-    const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - imageHeight * 2) / 2 + 20)) - imageY * 2;
-    drawQuadPoint(progressViewX, progressViewY, YELLOW);
+      const float lensX = mapFloat(imageX, 0, imageWidth, lensXmin, lensXmax);
+      const float lensY = mapFloat(imageY, 0, imageHeight, lensYmin, lensYmax);
+      
+      ik2dof.write(lensX, lensY);
+      float speed = burn ? speedBurn : speedSkip;  // In mm/second
+      float pixelDistance = (lensXmax - lensXmin) / (float)imageWidth;  // In mm
+      float deltaT = pixelDistance / (speed * ((float)speedFactor / 5.0));  // In seconds
 
-    const float lensX = mapFloat(imageX, 0, imageWidth, lensXmin, lensXmax);
-    const float lensY = mapFloat(imageY, 0, imageHeight, lensYmin, lensYmax);
-    
-    ik2dof.write(lensX, lensY);
-    float speed = burn ? speedBurn : speedSkip;  // In mm/second
-    float pixelDistance = (lensXmax - lensXmin) / (float)imageWidth;  // In mm
-    float deltaT = pixelDistance / (speed * ((float)speedFactor / 5.0));  // In seconds
+      #ifdef DEBUG
+        Serial.print("intensity: ");
+        Serial.println(intensity);
+      #endif
 
-    #ifdef DEBUG
-      Serial.print("intensity: ");
-      Serial.println(intensity);
-    #endif
+      if (burn && !lastBurn)
+        delay(burnStartDelay);
 
-    if (burn && !lastBurn)
-      delay(burnStartDelay);
+      delay((int)(deltaT * 1000.0));
 
-    delay((int)(deltaT * 1000.0));
+      drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
+      lastBurn = burn;
 
-    drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
-    lastBurn = burn;
+      if (backButton.isClicked())
+        return false;
 
-    if (backButton.isClicked())
-      return false;
-
-    return true;
-  });
+      return true;
+    });
+  #endif
 
   bmpFile.close();
 
-  if (done) {
-    Tft.lcd_display_string(20, 50, (const uint8_t*)"COMPLETED", FONT_1608, GREEN);
-    delay(2000);
+  if (!done) {
+    ik2dof.detach();
+    return false;
   }
 
-  return done;
+  // Done succesfully
+  Tft.lcd_fill_rect(statusX, statusY, 10 * 8, 16, BLACK);
+  Tft.lcd_display_string(statusX, statusY, (const uint8_t*)"COMPLETED", FONT_1608, GREEN);
+
+  // now we have to move the lens quick enough to not burn anything
+  // until the user clicks "Back"
+  int direction = 1;
+  int halfSpan = (lensXmax - lensXmin) / 2;
+  while (true) {
+    for (int dx = halfSpan - direction * halfSpan; dx >= 0 && dx < halfSpan * 2 + 1; dx += direction) {
+      ik2dof.write(lensXmin + dx, lensYmax);
+      delay(20);
+      if (backButton.isClicked()) {
+        ik2dof.detach();
+        return true;
+      }
+    }
+    direction *= -1;
+  }
 }
 
 void drawQuadPoint(uint16_t x, uint16_t y, uint16_t color) {

@@ -11,8 +11,8 @@ IK2DOF::IK2DOF(
     float arm2ZeroAngle,
     bool arm1Inverted,
     bool arm2Inverted,
-    Servo &servoArm1,
-    Servo &servoArm2) 
+    FloatServo &servoArm1,
+    FloatServo &servoArm2) 
     : _arm1Length(arm1Length)
     , _arm2Length(arm2Length)
     , _arm1ZeroAngle(arm1ZeroAngle)
@@ -68,8 +68,16 @@ void IK2DOF::write(float x, float y) {
         Serial.println();
     #endif
 
-    _servoArm1.write(arm1Angle);
-    _servoArm2.write(arm2Angle);
+    _servoArm1.attach();
+    _servoArm2.attach();
+
+    _servoArm1.writeFloat(arm1Angle);
+    _servoArm2.writeFloat(arm2Angle);
+}
+
+void IK2DOF::detach() {
+    _servoArm1.detach();
+    _servoArm2.detach();
 }
 
 IK2DOF::Point2D IK2DOF::circleIntersection(float x2, float y2, float r1, float r2) {
