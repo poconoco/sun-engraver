@@ -1,5 +1,5 @@
 #include <math.h>
-#include <Servo.h>
+#include "FloatServo.h"
 
 class IK2DOF {
 public:
@@ -10,11 +10,12 @@ public:
         float arm2ZeroAngle, // Angle to write to servo so the arm2 is parallel to arm1
         bool arm1Inverted,
         bool arm2Inverted,
-        Servo &servoArm1, // Provided servos should be already attached (and make sure min and max pulse lengts are calibrated)
-        Servo &servoArm2
+        FloatServo &servoArm1,
+        FloatServo &servoArm2
     );
 
     void write(float x, float y);
+    void detach();
 
 private:
     float _arm1Length;
@@ -23,8 +24,8 @@ private:
     float _arm2ZeroAngle;
     bool _arm1Inverted;
     bool _arm2Inverted;
-    Servo &_servoArm1;
-    Servo &_servoArm2;
+    FloatServo &_servoArm1;
+    FloatServo &_servoArm2;
 
     struct Point2D {
         float x;
