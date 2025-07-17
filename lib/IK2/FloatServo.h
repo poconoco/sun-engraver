@@ -7,7 +7,7 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
 
 class FloatServo {
     public:
-        FloatServo(int channel, int min, int max);
+        FloatServo(Adafruit_PWMServoDriver &pwm, uint8_t channel, int min, int max);
 
         void attach();
         void detach();
@@ -15,10 +15,10 @@ class FloatServo {
 
     private:
         bool _attached;
-        int _channel;
+        Adafruit_PWMServoDriver &_pwm;
+        uint8_t _channel;
         int _min;
         int _max;
-        Adafruit_PWMServoDriver _pwm;
 };
 
 #endif

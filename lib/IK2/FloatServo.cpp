@@ -4,8 +4,9 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-FloatServo::FloatServo(int channel, int min, int max) 
+FloatServo::FloatServo(Adafruit_PWMServoDriver &pwm, uint8_t channel, int min, int max) 
     : _attached(false)
+    , _pwm(pwm)
     , _channel(channel)
     , _min(min)
     , _max(max)
@@ -14,9 +15,6 @@ FloatServo::FloatServo(int channel, int min, int max)
 void FloatServo::attach() {
     if (_attached)
         return;
-
-    _pwm.begin();
-    _pwm.setPWMFreq(300);
 
     _attached = true;
 }
