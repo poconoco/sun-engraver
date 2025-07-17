@@ -64,8 +64,12 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(0, 465, 2500);
-  FloatServo servoArm2(1, 465, 2750);
+  Adafruit_PWMServoDriver pwm;
+  pwm.begin();
+  pwm.setPWMFreq(300);
+
+  FloatServo servoArm1(pwm, 0, 465, 2500);
+  FloatServo servoArm2(pwm, 1, 465, 2750);
 
   #ifdef CALIBRATE_SERVO_ANGLES
     servoArm1.attach();
@@ -89,9 +93,13 @@ void setup() {
         servoArm2
     );
 
+    delay(500);
+
     String bmpFiles[MAX_FILES_COUNT];
     int bmpCount = 0;
     getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
+//    bmpFiles[0] = "JET100.BMP";
+//    bmpCount = 1;
     initializeDisplay();
 
     int selectedIndex = -1;
@@ -476,7 +484,7 @@ void displayList(String* list, int count) {
   Tft.lcd_clear_screen(BLACK);
 
   for (int i = 0; i < count; i++) {
-      String filename = list[i];
+    String filename = list[i];
       int x = fileListX;
       int y = fileListY + i * fileRowHeight;
 
