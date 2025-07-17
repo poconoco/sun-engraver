@@ -48,11 +48,14 @@ void IK2DOF::write(float x, float y) {
         Serial.println();
     #endif
 
+    float arm1k = (_arm1Inverted ? -1.0 : 1.0);
+    float arm2k = (_arm2Inverted ? -1.0 : 1.0);
+
     // Get arm angles
     float arm1AbsAngle = atan2(joint.y, joint.x) * 180 / M_PI;
     float arm2AbsAngle = atan2(y - joint.y, x - joint.x) * 180 / M_PI;
-    float arm1Angle = _arm1ZeroAngle - 90 + (_arm1Inverted ? -1.0 : 1.0) * arm1AbsAngle;
-    float arm2Angle = _arm2ZeroAngle - 180 + (_arm2Inverted ? -1.0 : 1.0) * (180 - arm1AbsAngle + arm2AbsAngle);
+    float arm1Angle = _arm1ZeroAngle + arm1k * (arm1AbsAngle - 90);
+    float arm2Angle = _arm2ZeroAngle + arm2k * (- arm1AbsAngle + arm2AbsAngle);
 
     #ifdef IK_DEBUG
         Serial.println("Got the following absolute angles:");

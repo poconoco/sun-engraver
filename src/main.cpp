@@ -5,6 +5,7 @@
 
 //#define DEBUG
 //#define CALIBRATE_TOUCH
+//#define CALIBRATE_SERVO_ANGLES
 
 #include "Touch.h"
 #include "LCD.h"
@@ -23,9 +24,6 @@ const int arm1Pin = 6;
 const int arm2Pin = 8;
 
 const int sdCsPin = 5;
-
-const float arm1ZeroAngle = 95;
-const float arm2ZeroAngle = 82+60;
 
 const uint16_t fileRowHeight = 21; // Height of each file row in pixels
 const uint16_t fileListX = 20; // X position of the file list
@@ -61,60 +59,77 @@ void drawQuadPoint(uint16_t, uint16_t, uint16_t);
 
 void setup() {
 
+  const float arm1StraightBracketAngle = 98;
+  const float arm2StraightBracketAngle = 74;
+  const float arm2BracketToLensAngle = 60;
+
   #ifdef DEBUG
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(arm1Pin, 550, 2500);
-  FloatServo servoArm2(arm2Pin, 550, 2450);
+  FloatServo servoArm1(arm1Pin, 465, 2500);
+  FloatServo servoArm2(arm2Pin, 465, 2750);
 
-  IK2DOF ik2dof(
-      70,  // arm1 length
-      70,  // arm2 length
-      arm1ZeroAngle,
-      arm2ZeroAngle,
-      false,  // arm1 not inverted
-      false,  // arm2 not inverted
-      servoArm1,
-      servoArm2
-  );
+  #ifdef CALIBRATE_SERVO_ANGLES
+    servoArm1.attach();
+    servoArm2.attach();
 
-  String bmpFiles[MAX_FILES_COUNT];
-  int bmpCount = 0;
-  getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
-  initializeDisplay();
+    servoArm1.writeFloat(arm1StraightBracketAngle);
+    servoArm2.writeFloat(arm2StraightBracketAngle-arm2BracketToLensAngle);
 
-  int selectedIndex = -1;
-  int selectedSpeed = -1;  // From 1 to 10
-  bool done = false;
-  while (true) {
-    selectedIndex = selectFile(bmpFiles, bmpCount);
-    while (confirmSelection(bmpFiles, selectedIndex)) {
-      while (true) {
-        selectedSpeed = selectSpeed();
-        if (selectedSpeed > 0) {
-          while (prepFocusLens()) {
-            while (focusLens(ik2dof)) {
-              if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
-                done = true;
-              break;
+    while (true)
+      delay(1000);
+  #else
+
+    IK2DOF ik2dof(
+        70,  // arm1 length
+        70,  // arm2 length
+        arm1StraightBracketAngle,
+        arm2StraightBracketAngle-arm2BracketToLensAngle,
+        true,  // arm1 inverted
+        true,  // arm2 inverted
+        servoArm1,
+        servoArm2
+    );
+
+    String bmpFiles[MAX_FILES_COUNT];
+    int bmpCount = 0;
+    getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
+    initializeDisplay();
+
+    int selectedIndex = -1;
+    int selectedSpeed = -1;  // From 1 to 10
+    bool done = false;
+    while (true) {
+      selectedIndex = selectFile(bmpFiles, bmpCount);
+      while (confirmSelection(bmpFiles, selectedIndex)) {
+        while (true) {
+          selectedSpeed = selectSpeed();
+          if (selectedSpeed > 0) {
+            while (prepFocusLens()) {
+              while (focusLens(ik2dof)) {
+                if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
+                  done = true;
+                break;
+              }
+
+              if (done)
+                break;
             }
-
-            if (done)
-              break;
+          } else {
+            break;
           }
-        } else {
-          break;
+
+          if (done)
+            break;
         }
 
         if (done)
           break;
       }
-
-      if (done)
-        break;
     }
-  }
+
+  #endif
 }
 
 int selectFile(String* list, int count) {
