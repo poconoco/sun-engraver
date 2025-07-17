@@ -1,13 +1,13 @@
-#include <Servo.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #ifndef FLOAT_SERVO_H
 #define FLOAT_SERVO_H
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max);
 
-class FloatServo: private Servo {
+class FloatServo {
     public:
-        FloatServo(int pin, int min, int max);
+        FloatServo(int channel, int min, int max);
 
         void attach();
         void detach();
@@ -15,9 +15,10 @@ class FloatServo: private Servo {
 
     private:
         bool _attached;
-        int _pin;
+        int _channel;
         int _min;
         int _max;
+        Adafruit_PWMServoDriver _pwm;
 };
 
 #endif

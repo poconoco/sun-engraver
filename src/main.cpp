@@ -20,9 +20,6 @@
 
 #define MAX_FILES_COUNT 11
 
-const int arm1Pin = 6;
-const int arm2Pin = 8;
-
 const int sdCsPin = 5;
 
 const uint16_t fileRowHeight = 21; // Height of each file row in pixels
@@ -67,8 +64,8 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(arm1Pin, 465, 2500);
-  FloatServo servoArm2(arm2Pin, 465, 2750);
+  FloatServo servoArm1(0, 465, 2500);
+  FloatServo servoArm2(1, 465, 2750);
 
   #ifdef CALIBRATE_SERVO_ANGLES
     servoArm1.attach();
