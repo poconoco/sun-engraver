@@ -14,35 +14,10 @@
 #include "SunBmp.h"
 #include "Button.h"
 #include "FloatServo.h"
+#include "config.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
-
-#define MAX_FILES_COUNT 11
-
-const int arm1Pin = 6;
-const int arm2Pin = 8;
-
-const int sdCsPin = 5;
-
-const uint16_t fileRowHeight = 21; // Height of each file row in pixels
-const uint16_t fileListX = 20; // X position of the file list
-const uint16_t fileListY = 10; // Y position of the first file row
-
-// Should be square (PX_MAX - PX_MIN == PY_MAX - PY_MIN)
-const float lensXmin = 50;
-const float lensXmax = 110;
-const float lensYmin = -15;
-const float lensYmax = 45;
-
-// Also should be square
-const uint16_t imageWidth = 100;
-const uint16_t imageHeight = 100;
-const uint16_t imageBuffSize = 25;  // Should be a divisor of imageHeight
-
-const float speedSkip = 50;  // mm/s
-const float speedBurn = 2.0;  // mm/s
-const float burnStartDelay = 250;  // ms, additional time to start dark pixel after white
 
 void getBmpFileList(String*, int&, int);
 void initializeDisplay();
@@ -59,23 +34,19 @@ void drawQuadPoint(uint16_t, uint16_t, uint16_t);
 
 void setup() {
 
-  const float arm1StraightBracketAngle = 98;
-  const float arm2StraightBracketAngle = 74;
-  const float arm2BracketToLensAngle = 60;
-
   #ifdef DEBUG
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(arm1Pin, 465, 2500);
-  FloatServo servoArm2(arm2Pin, 465, 2750);
+  FloatServo servoArm1(ARM1_PIN, 465, 2500);
+  FloatServo servoArm2(ARM2_PIN, 465, 2750);
 
   #ifdef CALIBRATE_SERVO_ANGLES
     servoArm1.attach();
     servoArm2.attach();
 
-    servoArm1.writeFloat(arm1StraightBracketAngle);
-    servoArm2.writeFloat(arm2StraightBracketAngle-arm2BracketToLensAngle);
+    servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
+    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
 
     while (true)
       delay(1000);
@@ -84,8 +55,8 @@ void setup() {
     IK2DOF ik2dof(
         70,  // arm1 length
         70,  // arm2 length
-        arm1StraightBracketAngle,
-        arm2StraightBracketAngle-arm2BracketToLensAngle,
+        ARM1_STRAIGHT_BRACKET_ANGLE,
+        ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE,
         true,  // arm1 inverted
         true,  // arm2 inverted
         servoArm1,
@@ -155,7 +126,7 @@ bool confirmSelection(String *list, int idx) {
       return false;
   }
 
-  SunBmp sunBmp(bmpFile, imageWidth, imageHeight, imageBuffSize);
+  SunBmp sunBmp(bmpFile);
 
   if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
@@ -258,10 +229,10 @@ bool focusLens(IK2DOF& ik2dof) {
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
-  ik2dof.write(lensXmin, lensYmin);
+  ik2dof.write(LENS_X_MIN, LENS_Y_MIN);
 
   while (true) {
-    const float maxDelta = lensXmax - lensXmin;
+    const float maxDelta = LENS_X_MAX - LENS_X_MIN;
     // Move along four sides of square
     for (int direction = 0; direction < 4; direction++) {
 
@@ -286,20 +257,20 @@ bool focusLens(IK2DOF& ik2dof) {
         float y;
         switch (direction) {
           case 0:
-            x = lensXmin + i;
-            y = lensYmin;
+            x = LENS_X_MIN + i;
+            y = LENS_Y_MIN;
             break;
           case 1:
-            x = lensXmax;
-            y = lensYmin + i;
+            x = LENS_X_MAX;
+            y = LENS_Y_MIN + i;
             break;
           case 2:
-            x = lensXmax - i;
-            y = lensYmax;
+            x = LENS_X_MAX - i;
+            y = LENS_Y_MAX;
             break;
           case 3:
-            x = lensXmin;
-            y = lensYmax - i;
+            x = LENS_X_MIN;
+            y = LENS_Y_MAX - i;
             break;
         }
 
@@ -335,7 +306,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       return false;
   }
 
-  SunBmp sunBmp(bmpFile, imageWidth, imageHeight, imageBuffSize);
+  SunBmp sunBmp(bmpFile);
 
   if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
@@ -350,17 +321,17 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
   #else
     bool lastBurn = false;
     bool done = sunBmp.burnImage([&ik2dof, speedFactor, &lastBurn, &backButton](int imageX, int imageY, bool burn, bool arm) {
-      const uint16_t progressViewX = (Tft.LCD_WIDTH - imageWidth * 2) / 2 + imageX * 2;
-      const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - imageHeight * 2) / 2 + 20)) - imageY * 2;
+      const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
+      const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-      const float lensX = mapFloat(imageX, 0, imageWidth, lensXmin, lensXmax);
-      const float lensY = mapFloat(imageY, 0, imageHeight, lensYmin, lensYmax);
+      const float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
+      const float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
       
       ik2dof.write(lensX, lensY);
-      float speed = burn ? speedBurn : speedSkip;  // In mm/second
-      float pixelDistance = (lensXmax - lensXmin) / (float)imageWidth;  // In mm
-      float deltaT = pixelDistance / (speed * ((float)speedFactor / 5.0));  // In seconds
+      float speed = burn ? SPEED_BURN : SPEED_SKIP;  // In mm/second
+      float pixelDistance = (LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH;  // In mm
+      float deltaT = pixelDistance / (speed + (0.2 * (speedFactor - 5)));  // In seconds
 
       #ifdef DEBUG
         Serial.print("intensity: ");
@@ -368,7 +339,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       #endif
 
       if (burn && !lastBurn)
-        delay(burnStartDelay);
+        delay(BURN_START_DELAY);
 
       delay((int)(deltaT * 1000.0));
 
@@ -396,10 +367,10 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
   // now we have to move the lens quick enough to not burn anything
   // until the user clicks "Back"
   int direction = 1;
-  int halfSpan = (lensXmax - lensXmin) / 2;
+  int halfSpan = (LENS_X_MAX - LENS_X_MIN) / 2;
   while (true) {
     for (int dx = halfSpan - direction * halfSpan; dx >= 0 && dx < halfSpan * 2 + 1; dx += direction) {
-      ik2dof.write(lensXmin + dx, lensYmax);
+      ik2dof.write(LENS_X_MIN + dx, LENS_Y_MAX);
       delay(20);
       if (backButton.isClicked()) {
         ik2dof.detach();
@@ -422,11 +393,11 @@ void getBmpFileList(String* destList, int& count, int maxCount) {
 
   __XPT2046_CS_DISABLE();
 
-  pinMode(sdCsPin, OUTPUT);
-  digitalWrite(sdCsPin, HIGH);
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
   Sd2Card card;
-  card.init(SPI_FULL_SPEED, sdCsPin); 
-  if(!SD.begin(sdCsPin))  { 
+  card.init(SPI_FULL_SPEED, SD_CS_PIN); 
+  if(!SD.begin(SD_CS_PIN))  { 
     #ifdef DEBUG
       Serial.println("SD init failed!");
     #endif
@@ -480,8 +451,8 @@ void displayList(String* list, int count) {
 
   for (int i = 0; i < count; i++) {
       String filename = list[i];
-      int x = fileListX;
-      int y = fileListY + i * fileRowHeight;
+      int x = FILE_LIST_X;
+      int y = FILE_LIST_Y + i * FILE_ROW_HEIGHT;
 
       if (i % 2 == 0) {
           Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, WHITE);
@@ -551,11 +522,11 @@ int getSelectedIndex(String* list, int count) {
       #endif
 
       // Check if the touch is within the bounds of the displayed list
-      if (x >= fileListX && x <= Tft.LCD_WIDTH - 20 && y >= fileListY && y <= fileListY + count * fileRowHeight) {
-        int index = (y - fileListY) / fileRowHeight;
+      if (x >= FILE_LIST_X && x <= Tft.LCD_WIDTH - 20 && y >= FILE_LIST_Y && y <= FILE_LIST_Y + (uint16_t)count * FILE_ROW_HEIGHT) {
+        int index = (y - FILE_LIST_Y) / FILE_ROW_HEIGHT;
         if (index >= 0 && index < count) {
           // Highlight the selected file
-          Tft.lcd_display_string(fileListX, fileListY + index * fileRowHeight, (const uint8_t *)list[index].c_str(), FONT_1608, GREEN);
+          Tft.lcd_display_string(FILE_LIST_X, FILE_LIST_Y + index * FILE_ROW_HEIGHT, (const uint8_t *)list[index].c_str(), FONT_1608, GREEN);
           delay(100);
           return index; // Return the selected index
         }

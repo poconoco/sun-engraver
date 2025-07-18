@@ -3,11 +3,8 @@
 #include <Arduino.h>
 #include "LCD.h"
 
-SunBmp::SunBmp(SDLib::File &file, uint16_t width, uint16_t height, uint16_t pixelBuffSize)
+SunBmp::SunBmp(SDLib::File &file)
     : _file(file)
-    , _width(width)
-    , _height(height)
-    , _pixelBuffSize(pixelBuffSize)
     , _blackThreshold(200)  // If avg color intensity (0..255) less than this threshold, use black
 {}
 
@@ -43,7 +40,7 @@ bool SunBmp::bmpReadHeader() {
     uint16_t bmp_width = read32(_file);
     uint16_t bmp_height = read32(_file);
 
-    if(bmp_width != _width || bmp_height != _height)  {
+    if(bmp_width != IMAGE_WIDTH || bmp_height != IMAGE_HEIGHT)  {
         // Verify that the image is the right size
         Serial.print("Wrong image size: ");
         Serial.print(bmp_width, DEC);
@@ -84,22 +81,22 @@ void SunBmp::displayPreview() {
     _file.seek(_image_offset);
 
     uint32_t time = millis();
-    uint8_t sdbuffer[_pixelBuffSize * 3]; // 3 * pixels to buffer to house 3 color bytes
+    uint8_t sdbuffer[IMAGE_BUFF_SIZE * 3]; // 3 * pixels to buffer to house 3 color bytes
 
     // Leave enough place for image scaled up by 2x
-    const int base_x = (Tft.LCD_WIDTH - _width * 2) / 2;
-    const int base_y = (Tft.LCD_HEIGHT - _height * 2) / 2 + 20;
+    const int base_x = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2;
+    const int base_y = (Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20;
 
-    for (uint16_t i = 0; i < _height; i++) {
-        for(uint16_t j = 0; j < (_width/_pixelBuffSize); j++) {
-            _file.read(sdbuffer, _pixelBuffSize * 3);
+    for (uint16_t i = 0; i < IMAGE_HEIGHT; i++) {
+        for(uint16_t j = 0; j < (IMAGE_WIDTH/IMAGE_BUFF_SIZE); j++) {
+            _file.read(sdbuffer, IMAGE_BUFF_SIZE * 3);
             
             uint8_t buffidx = 0;
-            int offset_x = j * _pixelBuffSize;
-            unsigned long __color[_pixelBuffSize];
+            int offset_x = j * IMAGE_BUFF_SIZE;
+            unsigned long __color[IMAGE_BUFF_SIZE];
 
             // convert from 24 bit to 16 bit
-            for(uint16_t k = 0; k < _pixelBuffSize; k++) {
+            for(uint16_t k = 0; k < IMAGE_BUFF_SIZE; k++) {
                 #ifdef KEEP_COLOR
                     // Display in color
                     __color[k] = sdbuffer[buffidx+2]>>3;                        // red
@@ -120,7 +117,7 @@ void SunBmp::displayPreview() {
                 Tft.lcd_write_byte(0x2C, LCD_CMD);  //change 0x22 if driver is hx8347d
                 __LCD_DC_SET();
                 __LCD_CS_CLR();
-                for (uint16_t m = 0; m < _pixelBuffSize; m ++) {
+                for (uint16_t m = 0; m < IMAGE_BUFF_SIZE; m ++) {
                     __LCD_WRITE_BYTE(__color[m] >> 8 );
                     __LCD_WRITE_BYTE(__color[m] & 0xFF);
                     // Twice for double the size on the X axis

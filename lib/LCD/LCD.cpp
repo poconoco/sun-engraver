@@ -192,11 +192,7 @@ void TFT::lcd_display_char(uint16_t hwXpos, //specify x position.
 
 					   
     for (i = 0; i < chSize; i ++) {   
-		if (FONT_1206 == chSize) {
-			chTemp = pgm_read_byte(&c_chFont1206[chChr - 0x20][i]);  
-		} else if (FONT_1608 == chSize) { 
-			chTemp = pgm_read_byte(&c_chFont1608[chChr - 0x20][i]);
-		}
+		chTemp = pgm_read_byte(&c_chFont1608[chChr - 0x20][i]);
 		
         for (j = 0; j < 8; j ++) {
     		if (chTemp & 0x80) {
