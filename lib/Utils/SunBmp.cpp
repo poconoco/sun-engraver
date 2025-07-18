@@ -20,32 +20,40 @@ bool SunBmp::bmpReadHeader() {
 
     // read file size
     tmp = read32(_file);
-    Serial.print("Image size: ");
-    Serial.print(tmp, DEC);
-    Serial.println(" bytes");
+    #ifdef DEBUG
+        Serial.print("Image size: ");
+        Serial.print(tmp, DEC);
+        Serial.println(" bytes");
+    #endif
 
     // read and ignore creator bytes
     read32(_file);
 
     _image_offset = read32(_file);
-    Serial.print("Offset: ");
-    Serial.print(_image_offset, DEC);
-    Serial.println(" bytes");
+    #ifdef DEBUG
+        Serial.print("Offset: ");
+        Serial.print(_image_offset, DEC);
+        Serial.println(" bytes");
+    #endif
 
     // read DIB header
     tmp = read32(_file);
-    Serial.print("Header size: ");
-    Serial.println(tmp, DEC);
+    #ifdef DEBUG
+        Serial.print("Header size: ");
+        Serial.println(tmp, DEC);
+    #endif
     
     uint16_t bmp_width = read32(_file);
     uint16_t bmp_height = read32(_file);
 
     if(bmp_width != IMAGE_WIDTH || bmp_height != IMAGE_HEIGHT)  {
         // Verify that the image is the right size
-        Serial.print("Wrong image size: ");
-        Serial.print(bmp_width, DEC);
-        Serial.print("x");
-        Serial.println(bmp_height, DEC);
+        #ifdef DEBUG
+            Serial.print("Wrong image size: ");
+            Serial.print(bmp_width, DEC);
+            Serial.print("x");
+            Serial.println(bmp_height, DEC);
+        #endif
         return false;
     }
 
@@ -53,19 +61,25 @@ bool SunBmp::bmpReadHeader() {
         return false;
 
     bmpDepth = read16(_file);   
-    Serial.print("Bitdepth: ");
-    Serial.println(bmpDepth, DEC);
+    #ifdef DEBUG
+        Serial.print("Bitdepth: ");
+        Serial.println(bmpDepth, DEC);
+    #endif
 
     if (bmpDepth != 24) {
         // only 24 bit depth supported
-        Serial.print("Wrong bit depth: ");
-        Serial.println(bmpDepth, DEC);
+        #ifdef DEBUG
+            Serial.print("Wrong bit depth: ");
+            Serial.println(bmpDepth, DEC);
+        #endif
         return false;
     }
 
     if (read32(_file) != 0) {
         // compression not supported
-        Serial.println("Compression not supported");
+        #ifdef DEBUG
+            Serial.println("Compression not supported");
+        #endif
         return false;
     }
 
@@ -74,14 +88,15 @@ bool SunBmp::bmpReadHeader() {
 
 void SunBmp::displayPreview() {
     if (_image_offset == 0) {
-        Serial.println("Image offset is not read fron header");
+        #ifdef DEBUG
+            Serial.println("Image offset is not read fron header");
+        #endif
         return;
     }
 
     _file.seek(_image_offset);
 
-    uint32_t time = millis();
-    uint8_t sdbuffer[IMAGE_BUFF_SIZE * 3]; // 3 * pixels to buffer to house 3 color bytes
+    uint8_t sdbuffer[IMAGE_BUFF_SIZE * 3]; // 3 * pixels to house 3 color bytes
 
     // Leave enough place for image scaled up by 2x
     const int base_x = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2;
@@ -93,7 +108,7 @@ void SunBmp::displayPreview() {
             
             uint8_t buffidx = 0;
             int offset_x = j * IMAGE_BUFF_SIZE;
-            unsigned long __color[IMAGE_BUFF_SIZE];
+            uint16_t __color[IMAGE_BUFF_SIZE];
 
             // convert from 24 bit to 16 bit
             for(uint16_t k = 0; k < IMAGE_BUFF_SIZE; k++) {
@@ -128,9 +143,6 @@ void SunBmp::displayPreview() {
             }
         }
     }
-    
-    Serial.print(millis() - time, DEC);
-    Serial.println(" ms");    
 }
 
 // Convert data from little to big endian for SD card reading

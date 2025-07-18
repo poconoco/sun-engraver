@@ -22,6 +22,7 @@
 #define BROWN 		   0XBC40 
 #define BRRED 		   0XFC07 
 #define GRAY  		   0X8430
+#define ORANGE         0xFD40
 
 #define LCD_CMD      0
 #define LCD_DATA     1

@@ -14,12 +14,13 @@
 #include "SunBmp.h"
 #include "Button.h"
 #include "FloatServo.h"
+#include "BitSet.h"
 #include "config.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-void getBmpFileList(String*, int&, int);
+void getBmpFileList(String*, int&);
 void initializeDisplay();
 void calibrateTouch();
 void displayList(String*, int);
@@ -65,7 +66,7 @@ void setup() {
 
     String bmpFiles[MAX_FILES_COUNT];
     int bmpCount = 0;
-    getBmpFileList(bmpFiles, bmpCount, MAX_FILES_COUNT);
+    getBmpFileList(bmpFiles, bmpCount);
     initializeDisplay();
 
     int selectedIndex = -1;
@@ -167,15 +168,15 @@ int selectSpeed() {
   Button dec(speedX - 50, speedY, 30, 30, "-");
   Button inc(speedX + 50, speedY, 30, 30, "+");
   Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
-  Tft.lcd_fill_rect(speedX+1, speedY+1, 30-2, 30-2, GRAY);
+  Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
 
   int speed = 5;
   bool redraw = true;
   while (true) {
 
     if (redraw) {
-      Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GRAY);
-      Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, WHITE);
+      Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GREEN);
+      Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, BLACK);
       redraw = false;
     }
 
@@ -320,7 +321,19 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
     bool done = true;
   #else
     bool lastBurn = false;
-    bool done = sunBmp.burnImage([&ik2dof, speedFactor, &lastBurn, &backButton](int imageX, int imageY, bool burn, bool arm) {
+
+    auto burnPixelFunc = [
+      &ik2dof, 
+      speedFactor, 
+      &lastBurn, 
+      &backButton
+    ] (
+      int imageX, 
+      int imageY, 
+      bool burn,
+      BitSet<IMAGE_WIDTH> prevLine,
+      bool arm
+    ){
       const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
       const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
@@ -329,16 +342,31 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       const float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
       
       ik2dof.write(lensX, lensY);
-      float speed = burn ? SPEED_BURN : SPEED_SKIP;  // In mm/second
+
+      // If more than 2 of 3 neighbor pixels were burn on the previous line
+      bool prevLineBurnt = 
+        (prevLine.get(imageX - 1) ? 1 : 0) +
+        (prevLine.get(imageX    ) ? 1 : 0) +
+        (prevLine.get(imageX + 1) ? 1 : 0) 
+          > 2;
+
+      float speed = burn ? (prevLineBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
+                                          : SPEED_BURN) 
+                         : SPEED_SKIP;  // In mm/second
+
+      // Apply speed factor
+      if (speed != SPEED_SKIP)
+        speed = (speed + (0.2 * (speedFactor - 5)));
+        
       float pixelDistance = (LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH;  // In mm
-      float deltaT = pixelDistance / (speed + (0.2 * (speedFactor - 5)));  // In seconds
+      float deltaT = pixelDistance / speed;  // In seconds
 
       #ifdef DEBUG
         Serial.print("intensity: ");
         Serial.println(intensity);
       #endif
 
-      if (burn && !lastBurn)
+      if (burn && !lastBurn && !prevLineBurnt)
         delay(BURN_START_DELAY);
 
       delay((int)(deltaT * 1000.0));
@@ -350,7 +378,9 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
         return false;
 
       return true;
-    });
+    };
+
+    bool done = sunBmp.burnImage(burnPixelFunc);
   #endif
 
   bmpFile.close();
@@ -388,15 +418,15 @@ void drawQuadPoint(uint16_t x, uint16_t y, uint16_t color) {
   Tft.lcd_draw_point(x+1, y+1, color);
 }
 
-void getBmpFileList(String* destList, int& count, int maxCount) {
+void getBmpFileList(String* destList, int& count) {
   count = 0;
 
   __XPT2046_CS_DISABLE();
 
-  pinMode(SD_CS_PIN, OUTPUT);
-  digitalWrite(SD_CS_PIN, HIGH);
-  Sd2Card card;
-  card.init(SPI_FULL_SPEED, SD_CS_PIN); 
+//  pinMode(SD_CS_PIN, OUTPUT);
+//  digitalWrite(SD_CS_PIN, HIGH);
+//  Sd2Card card;
+//  card.init(SPI_FULL_SPEED, SD_CS_PIN); 
   if(!SD.begin(SD_CS_PIN))  { 
     #ifdef DEBUG
       Serial.println("SD init failed!");
@@ -427,7 +457,7 @@ void getBmpFileList(String* destList, int& count, int maxCount) {
         #endif
         destList[count++] = filename;
 
-        if (count >= maxCount) 
+        if (count >= MAX_FILES_COUNT) 
           break;
       }
     }

@@ -1,5 +1,8 @@
 #include <Arduino.h>
 
+#ifndef __BIT_SET_H
+#define __BIT_SET_H
+
 template <size_t NUM_BITS>
 class BitSet {
 public:
@@ -42,3 +45,5 @@ private:
 
     uint8_t bits[numBytes()] = {};
 };
+
+#endif

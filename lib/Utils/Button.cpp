@@ -11,6 +11,7 @@ Button::Button(int x, int y, int w, int h, const char* label)
         , _labelText(label) 
 {
     Tft.lcd_draw_rect(_x, _y, _width, _height, YELLOW); // Outline
+    Tft.lcd_draw_rect(_x+1, _y+1, _width-2, _height-2, ORANGE);
     // Text at the center
     Tft.lcd_display_string(_x + (_width - strlen(label) * 8) / 2, _y + (_height - 16) / 2, (const uint8_t *)label, FONT_1608, WHITE);
 }
