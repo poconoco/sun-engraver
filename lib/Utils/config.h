@@ -21,8 +21,9 @@
 #define IMAGE_HEIGHT 100
 #define IMAGE_BUFF_SIZE 10  // Should be a divisor of imageHeight
 
-#define SPEED_SKIP 50  // mm/s
+#define SPEED_SKIP 75  // mm/s
 #define SPEED_BURN 2.4  // mm/s
+#define SPEED_BURN_WHEN_DARK_NEIGHBORS 3  // mm/s, speed when on previous line there are many burnt neighbors
 #define BURN_START_DELAY 250  // ms, additional time to start dark pixel after white
 
 
