@@ -1,8 +1,10 @@
 #include <SD.h>
 
+#include "config.h"
+
 class SunBmp {
     public:
-        SunBmp(SDLib::File &file, uint16_t width, uint16_t height, uint16_t pixelBuffSize);
+        SunBmp(SDLib::File &file);
         bool bmpReadHeader();
         void displayPreview();
 
@@ -14,7 +16,7 @@ class SunBmp {
             }
 
             _file.seek(_image_offset);
-            bool burnMaskBuff[_width];
+            bool burnMaskBuff[IMAGE_WIDTH];
             uint16_t buffidx = 0;
 
             // Move lens to start position
@@ -23,13 +25,13 @@ class SunBmp {
             burnPixel(0, 0, 0, true);
 
             bool zig = true;
-            for (uint16_t y = 0; y < _height; y++) {
+            for (uint16_t y = 0; y < IMAGE_HEIGHT; y++) {
                 buffidx = 0;
 
                 // Convert to monochrome
                 // We need to read entire line first, because below we will traverse it 
                 // eitehr forward or backward
-                for(uint16_t x = 0; x < _width; x++) {
+                for(uint16_t x = 0; x < IMAGE_WIDTH; x++) {
                     const uint32_t allColors = _file.read() + _file.read() + _file.read();
                     burnMaskBuff[x] = allColors < _blackThreshold * 3;
                     buffidx += 3;
@@ -37,11 +39,11 @@ class SunBmp {
 
                 // now we need to traverse line zig-zagging
                 if (zig) {
-                    for (uint16_t x = 0; x < _width; x++)
+                    for (uint16_t x = 0; x < IMAGE_WIDTH; x++)
                         if (!burnPixel(x, y, burnMaskBuff[x], true))
                             return false;
                 } else { // zag
-                    for (int x = _width - 1; x >= 0; x--)
+                    for (int x = IMAGE_WIDTH - 1; x >= 0; x--)
                         if (!burnPixel(x, y, burnMaskBuff[x], true))
                             return false;
                 }
@@ -54,9 +56,6 @@ class SunBmp {
 
     private:
         SDLib::File &_file;
-        uint16_t _width;
-        uint16_t _height;
-        uint16_t _pixelBuffSize;
         uint32_t _image_offset;
         uint8_t _blackThreshold;
 
