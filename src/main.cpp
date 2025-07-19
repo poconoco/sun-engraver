@@ -3,10 +3,13 @@
 #include <SD.h>
 #include <EEPROM.h>
 
+// Uncommenting DEBUG requiers disabling manually some features, otehrwise 
+// you'll get memory overflow
 //#define DEBUG
+
 //#define CALIBRATE_TOUCH
 //#define CALIBRATE_SERVO_ANGLES
-
+ 
 #include "Touch.h"
 #include "LCD.h"
 #include "XPT2046.h"
@@ -28,10 +31,12 @@ int getSelectedIndex(String*, int);
 int selectFile(String*, int);
 bool confirmSelection(String *, int);
 int selectSpeed();
+int selectSunDirection();
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
 bool doBurn(IK2DOF&, int, String);
 void drawQuadPoint(uint16_t, uint16_t, uint16_t);
+void offsetXY(float& x, float& y, float angleDeg, float distance);
 
 void setup() {
 
@@ -42,7 +47,7 @@ void setup() {
   FloatServo servoArm1(ARM1_PIN, 465, 2500);
   FloatServo servoArm2(ARM2_PIN, 465, 2750);
 
-  #ifdef CALIBRATE_SERVO_ANGLES
+  #if defined(CALIBRATE_SERVO_ANGLES)
     servoArm1.attach();
     servoArm2.attach();
 
@@ -71,6 +76,7 @@ void setup() {
 
     int selectedIndex = -1;
     int selectedSpeed = -1;  // From 1 to 10
+    int selectedSunDirection = -1;
     bool done = false;
     while (true) {
       selectedIndex = selectFile(bmpFiles, bmpCount);
@@ -78,15 +84,26 @@ void setup() {
         while (true) {
           selectedSpeed = selectSpeed();
           if (selectedSpeed > 0) {
-            while (prepFocusLens()) {
-              while (focusLens(ik2dof)) {
-                if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
-                  done = true;
+
+            while (true) {
+              selectedSunDirection = selectSunDirection();
+              if (selectedSunDirection > 0) {
+                while (prepFocusLens()) {
+                  while (focusLens(ik2dof)) {
+                    // Need to define this out otherwise out of flash storage when calibration is included
+                    #ifndef CALIBRATE_TOUCH
+                      if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
+                        done = true;
+                    #endif
+                    break;
+                  }
+
+                  if (done)
+                    break;
+                }
+              } else {
                 break;
               }
-
-              if (done)
-                break;
             }
           } else {
             break;
@@ -190,6 +207,55 @@ int selectSpeed() {
     if (inc.isClicked()) {
       if (speed < 10) {
         speed++;
+        redraw = true;
+      }
+    }
+
+    if (confirmButton.isClicked()) {
+      return speed;
+    }
+
+    if (backButton.isClicked()) {
+      return -1;
+    }
+  }
+}
+
+int selectSunDirection() {
+  Tft.lcd_clear_screen(BLACK);
+  Tft.lcd_display_string(100, 20, (const uint8_t*)"Set sun movement direction:", FONT_1608, WHITE);
+
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+
+  const int speedX = Tft.LCD_WIDTH / 2 - 30 / 2;
+  const int speedY = Tft.LCD_HEIGHT / 2 - 20;
+
+  Button dec(speedX - 50, speedY, 30, 30, "-");
+  Button inc(speedX + 50, speedY, 30, 30, "+");
+  Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
+  Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
+
+  int speed = 5;
+  bool redraw = true;
+  while (true) {
+
+    if (redraw) {
+      Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GREEN);
+      Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, BLACK);
+      redraw = false;
+    }
+
+    if (dec.isClicked()) {
+      if (speed > 0) {
+        speed -= 15;
+        redraw = true;
+      }
+    }
+
+    if (inc.isClicked()) {
+      if (speed < 360) {
+        speed += 15;
         redraw = true;
       }
     }
@@ -362,8 +428,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       float deltaT = pixelDistance / speed;  // In seconds
 
       #ifdef DEBUG
-        Serial.print("intensity: ");
-        Serial.println(intensity);
+        Serial.print("speed: ");
+        Serial.println(speed);
       #endif
 
       if (burn && !lastBurn && !prevLineBurnt)
@@ -519,8 +585,13 @@ void calibrateTouch() {
         Serial.print("  - fYfac: "); Serial.println(touchParams.fYfac);
         Serial.println();
       #endif
-    #else
 
+      while (true) {
+        Tp.tp_draw_board();
+        delay(10);
+      }
+    #else
+      // Read calibration from the EEPROM
       tp_dev_t &touchParams = Tp.get_touch_params();
 
       EEPROM.get(baseAddress + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
@@ -542,8 +613,10 @@ int getSelectedIndex(String* list, int count) {
   calibrateTouch();
 
   uint16_t x, y;
+  bool prevPressed = false;
   while (true) {
-    if (Tp.is_pressed(x, y)) {
+    const bool pressed = Tp.is_pressed(x, y);
+    if (! pressed && prevPressed) {
       #ifdef DEBUG
         Serial.print("Touched at: ");
         Serial.print(x);
@@ -551,20 +624,24 @@ int getSelectedIndex(String* list, int count) {
         Serial.println(y);
       #endif
 
-      // Check if the touch is within the bounds of the displayed list
-      if (x >= FILE_LIST_X && x <= Tft.LCD_WIDTH - 20 && y >= FILE_LIST_Y && y <= FILE_LIST_Y + (uint16_t)count * FILE_ROW_HEIGHT) {
-        int index = (y - FILE_LIST_Y) / FILE_ROW_HEIGHT;
-        if (index >= 0 && index < count) {
-          // Highlight the selected file
-          Tft.lcd_display_string(FILE_LIST_X, FILE_LIST_Y + index * FILE_ROW_HEIGHT, (const uint8_t *)list[index].c_str(), FONT_1608, GREEN);
-          delay(100);
-          return index; // Return the selected index
-        }
+      int index = (y - FILE_LIST_Y) / FILE_ROW_HEIGHT;
+      if (index >= 0 && index < count) {
+        // Highlight the selected file
+        Tft.lcd_display_string(FILE_LIST_X, FILE_LIST_Y + index * FILE_ROW_HEIGHT, (const uint8_t *)list[index].c_str(), FONT_1608, GREEN);
+        delay(100);
+        return index; // Return the selected index
       }
-
-      delay(50);
     }
+
+    delay(10);
+    prevPressed = pressed;
   }
 
   return -1; // Should never get here
+}
+
+void offsetXY(float& x, float& y, float angleDeg, float distance) {
+  float angleRad = angleDeg * (PI / 180.0);
+  x += cos(angleRad) * distance;
+  y += sin(angleRad) * distance;
 }
