@@ -10,7 +10,9 @@ SunBmp::SunBmp(SDLib::File &file)
 
 bool SunBmp::bmpReadHeader() {
     // read header
-    uint32_t tmp;
+    #ifdef DEBUG
+        uint32_t tmp;
+    #endif
     uint8_t bmpDepth;
     
     if (read16(_file) != 0x4D42) {
@@ -19,11 +21,13 @@ bool SunBmp::bmpReadHeader() {
     }
 
     // read file size
-    tmp = read32(_file);
     #ifdef DEBUG
+        tmp = read32(_file);
         Serial.print("Image size: ");
         Serial.print(tmp, DEC);
         Serial.println(" bytes");
+    #else
+        read32(_file);
     #endif
 
     // read and ignore creator bytes
@@ -37,10 +41,12 @@ bool SunBmp::bmpReadHeader() {
     #endif
 
     // read DIB header
-    tmp = read32(_file);
     #ifdef DEBUG
+        tmp = read32(_file);
         Serial.print("Header size: ");
         Serial.println(tmp, DEC);
+    #else
+        read32(_file);
     #endif
     
     uint16_t bmp_width = read32(_file);
