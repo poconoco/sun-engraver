@@ -26,7 +26,10 @@
 #define SPEED_BURN_WHEN_DARK_NEIGHBORS 3  // mm/s, speed when on previous line there are many burnt neighbors
 #define BURN_START_DELAY 250  // ms, additional time to start dark pixel after white
 
-
 #define ARM1_STRAIGHT_BRACKET_ANGLE 98
 #define ARM2_STRAIGHT_BRACKET_ANGLE 74
 #define ARM2_BRACKET_TO_LENS_ANGLE 60
+
+// This latitude and lens focal length is used to estimate sun movement speed
+#define LATITUDE 48.29  // Chernivtsi, Ukraine
+#define FOCAL_LENGTH 190  // mm

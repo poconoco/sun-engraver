@@ -34,9 +34,12 @@ int selectSpeed();
 int selectSunDirection();
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
-bool doBurn(IK2DOF&, int, String);
+bool doBurn(IK2DOF&, int, float, String);
 void drawQuadPoint(uint16_t, uint16_t, uint16_t);
+void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16_t color);
 void offsetXY(float& x, float& y, float angleDeg, float distance);
+float getSunSpeed();
+void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec);
 
 void setup() {
 
@@ -92,7 +95,7 @@ void setup() {
                   while (focusLens(ik2dof)) {
                     // Need to define this out otherwise out of flash storage when calibration is included
                     #ifndef CALIBRATE_TOUCH
-                      if (doBurn(ik2dof, selectedSpeed, bmpFiles[selectedIndex]))
+                      if (doBurn(ik2dof, selectedSpeed, selectedSunDirection, bmpFiles[selectedIndex]))
                         done = true;
                     #endif
                     break;
@@ -223,45 +226,45 @@ int selectSpeed() {
 
 int selectSunDirection() {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 20, (const uint8_t*)"Set sun movement direction:", FONT_1608, WHITE);
+  Tft.lcd_display_string((Tft.LCD_WIDTH - 27*8)/2, 20, (const uint8_t*)"Set sun movement direction:", FONT_1608, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
-  const int speedX = Tft.LCD_WIDTH / 2 - 30 / 2;
-  const int speedY = Tft.LCD_HEIGHT / 2 - 20;
+  const int cx = Tft.LCD_WIDTH / 2;
+  const int cy = Tft.LCD_HEIGHT / 2;
 
-  Button dec(speedX - 50, speedY, 30, 30, "-");
-  Button inc(speedX + 50, speedY, 30, 30, "+");
-  Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
-  Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
+  Button dec(cx + 80 - 15, cy - 15, 30, 30, "-");
+  Button inc(cx - 80 - 15, cy - 15, 30, 30, "+");
 
-  int speed = 5;
+  int direction = 90;
+  int prevDirection = direction;
   bool redraw = true;
   while (true) {
 
     if (redraw) {
-      Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GREEN);
-      Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, BLACK);
+      drawArrow(cx, cy, 60, prevDirection, BLACK);
+      drawArrow(cx, cy, 60, direction, ORANGE);
+      prevDirection = direction;
       redraw = false;
     }
 
     if (dec.isClicked()) {
-      if (speed > 0) {
-        speed -= 15;
-        redraw = true;
-      }
+      direction -= 15;
+      redraw = true;
+      if (direction < 0)
+        direction += 360;
     }
 
     if (inc.isClicked()) {
-      if (speed < 360) {
-        speed += 15;
-        redraw = true;
-      }
+      direction += 15;
+      redraw = true;
+      if (direction >= 360)
+        direction -= 360;
     }
 
     if (confirmButton.isClicked()) {
-      return speed;
+      return direction;
     }
 
     if (backButton.isClicked()) {
@@ -273,7 +276,7 @@ int selectSunDirection() {
 bool prepFocusLens() {
   Tft.lcd_clear_screen(BLACK);
   Tft.lcd_display_string(100, 50, (const uint8_t*)"Cover lens with", FONT_1608, WHITE);
-  Tft.lcd_display_string(100, 70, (const uint8_t*)"focusing cap", FONT_1608, WHITE);
+  Tft.lcd_display_string(100+2*8, 70, (const uint8_t*)"focusing cap", FONT_1608, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -356,7 +359,7 @@ bool focusLens(IK2DOF& ik2dof) {
   }
 }
 
-bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
+bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, String filename) {
   const uint16_t statusX = 120;
   const uint16_t statusY = Tft.LCD_HEIGHT - 27;
   Tft.lcd_clear_screen(BLACK);
@@ -387,12 +390,17 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
     bool done = true;
   #else
     bool lastBurn = false;
+    const float sunSpeed = getSunSpeed();
+    const unsigned long start = millis();
 
     auto burnPixelFunc = [
-      &ik2dof, 
-      speedFactor, 
+      &ik2dof,
       &lastBurn, 
-      &backButton
+      &backButton,
+      sunSpeed,
+      speedFactor,
+      sunDirection,
+      start
     ] (
       int imageX, 
       int imageY, 
@@ -404,9 +412,12 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, String filename) {
       const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-      const float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
-      const float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
+      float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
+      float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
+      const float timeDeltaSec = (float)(millis() - start) / 1000;
       
+      offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
+
       ik2dof.write(lensX, lensY);
 
       // If more than 2 of 3 neighbor pixels were burn on the previous line
@@ -482,6 +493,34 @@ void drawQuadPoint(uint16_t x, uint16_t y, uint16_t color) {
   Tft.lcd_draw_point(x+1, y, color);
   Tft.lcd_draw_point(x, y+1, color);
   Tft.lcd_draw_point(x+1, y+1, color);
+}
+
+void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16_t color) {
+  float angleRad = angleDeg * (PI / 180.0);
+
+  float dx = cos(angleRad) * (length / 2.0);
+  float dy = sin(angleRad) * (length / 2.0);
+
+  // Tip and tail coordinates
+  float x0 = cx - dx;  // tail
+  float y0 = cy - dy;
+  float x1 = cx + dx;  // tip
+  float y1 = cy + dy;
+
+  Tft.lcd_draw_line(x0, Tft.LCD_HEIGHT - y0, x1, Tft.LCD_HEIGHT - y1, color);
+
+  // Optional: Draw arrowhead
+  float headSize = length * 0.2;  // size of arrowhead
+  float angleLeft  = angleRad + PI * 3.0 / 4.0;
+  float angleRight = angleRad - PI * 3.0 / 4.0;
+
+  float hx0 = x1 + cos(angleLeft)  * headSize;
+  float hy0 = y1 + sin(angleLeft)  * headSize;
+  float hx1 = x1 + cos(angleRight) * headSize;
+  float hy1 = y1 + sin(angleRight) * headSize;
+
+  Tft.lcd_draw_line(x1, Tft.LCD_HEIGHT - y1, hx0, Tft.LCD_HEIGHT - hy0, color);  // left arrowhead
+  Tft.lcd_draw_line(x1, Tft.LCD_HEIGHT - y1, hx1, Tft.LCD_HEIGHT - hy1, color);  // right arrowhead
 }
 
 void getBmpFileList(String* destList, int& count) {
@@ -644,4 +683,18 @@ void offsetXY(float& x, float& y, float angleDeg, float distance) {
   float angleRad = angleDeg * (PI / 180.0);
   x += cos(angleRad) * distance;
   y += sin(angleRad) * distance;
+}
+
+float getSunSpeed() {
+  const float degreePerSec = 15.0 * cos(LATITUDE) / 3600;
+  return degreePerSec * (PI / 180) * FOCAL_LENGTH;
+}
+
+void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec) {
+  const float distance = sunSpeed * timeDeltaSec;
+
+  // Invert sun direction, because focal point moves inverted compared to the sun in the sky
+  float angleRad = (sunDirection + 180) * (PI / 180.0);
+  x += cos(angleRad) * distance;
+  y += sin(angleRad) * distance;  
 }
