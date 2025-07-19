@@ -190,7 +190,10 @@ int selectSpeed() {
   Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
   Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
 
-  int speed = 5;
+  int speed;
+  EEPROM.get(SPEED_EEPROM_ADDR, speed);
+  if (speed < 0 || speed > 10)
+    speed = 5;
   bool redraw = true;
   while (true) {
 
@@ -215,6 +218,7 @@ int selectSpeed() {
     }
 
     if (confirmButton.isClicked()) {
+      EEPROM.put(SPEED_EEPROM_ADDR, speed);
       return speed;
     }
 
@@ -237,7 +241,11 @@ int selectSunDirection() {
   Button dec(cx + 80 - 15, cy - 15, 30, 30, "-");
   Button inc(cx - 80 - 15, cy - 15, 30, 30, "+");
 
-  int direction = 90;
+  int direction;
+  EEPROM.get(SUN_DIR_EEPROM_ADDR, direction);
+  if (direction < 0 || direction >= 360)
+    direction = 90;
+
   int prevDirection = direction;
   bool redraw = true;
   while (true) {
@@ -264,6 +272,7 @@ int selectSunDirection() {
     }
 
     if (confirmButton.isClicked()) {
+      EEPROM.put(SUN_DIR_EEPROM_ADDR, direction);
       return direction;
     }
 
@@ -599,7 +608,6 @@ void displayList(String* list, int count) {
 
 void calibrateTouch() {
     Tp.tp_init();
-    const int baseAddress = 0x00;
     int pointer = 0;
 
     #ifdef CALIBRATE_TOUCH
@@ -612,10 +620,10 @@ void calibrateTouch() {
 
       // Store calibration in the EEPROM
       tp_dev_t &touchParams = Tp.get_touch_params();
-      EEPROM.put(baseAddress + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
-      EEPROM.put(baseAddress + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
-      EEPROM.put(baseAddress + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
-      EEPROM.put(baseAddress + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
+      EEPROM.put(TOUCH_EEPROM_ADDR + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
+      EEPROM.put(TOUCH_EEPROM_ADDR + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
+      EEPROM.put(TOUCH_EEPROM_ADDR + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
+      EEPROM.put(TOUCH_EEPROM_ADDR + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
       #ifdef DEBUG
         Serial.println("Touch calibration saved to EEPROM: ");
         Serial.print("  - iXoff: "); Serial.println(touchParams.iXoff);
@@ -633,10 +641,10 @@ void calibrateTouch() {
       // Read calibration from the EEPROM
       tp_dev_t &touchParams = Tp.get_touch_params();
 
-      EEPROM.get(baseAddress + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
-      EEPROM.get(baseAddress + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
-      EEPROM.get(baseAddress + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
-      EEPROM.get(baseAddress + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
+      EEPROM.get(TOUCH_EEPROM_ADDR + pointer, touchParams.iXoff); pointer += sizeof(touchParams.iXoff);
+      EEPROM.get(TOUCH_EEPROM_ADDR + pointer, touchParams.iYoff); pointer += sizeof(touchParams.iYoff);
+      EEPROM.get(TOUCH_EEPROM_ADDR + pointer, touchParams.fXfac); pointer += sizeof(touchParams.fXfac);
+      EEPROM.get(TOUCH_EEPROM_ADDR + pointer, touchParams.fYfac); pointer += sizeof(touchParams.fYfac);
 
       #ifdef DEBUG
         Serial.println("Touch calibration loaded from EEPROM");

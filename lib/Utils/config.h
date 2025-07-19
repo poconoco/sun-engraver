@@ -1,4 +1,6 @@
-
+#define TOUCH_EEPROM_ADDR 0
+#define SPEED_EEPROM_ADDR 16
+#define SUN_DIR_EEPROM_ADDR 18
 
 #define MAX_FILES_COUNT 11
 
@@ -33,3 +35,4 @@
 // This latitude and lens focal length is used to estimate sun movement speed
 #define LATITUDE 48.29  // Chernivtsi, Ukraine
 #define FOCAL_LENGTH 190  // mm
+
