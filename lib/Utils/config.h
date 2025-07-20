@@ -14,10 +14,10 @@
 #define FILE_LIST_Y 10 // Y position of the first file row
 
 // Should be square (LENS_X_MAX - LENS_X_MIN == LENS_Y_MAX - LENS_Y_MIN)
-#define LENS_X_MIN 50
-#define LENS_X_MAX 110
-#define LENS_Y_MIN -15
-#define LENS_Y_MAX 45
+#define LENS_X_MIN 60
+#define LENS_X_MAX 120
+#define LENS_Y_MIN -30
+#define LENS_Y_MAX 30
 
 // Also should be square
 #define IMAGE_WIDTH 100
@@ -31,8 +31,8 @@
 #define SPEED_BURN_WHEN_DARK_NEIGHBORS 3  // mm/s, speed when on previous line there are many burnt neighbors
 #define BURN_START_DELAY 0.250  // s, additional time to start dark pixel after white
 
-#define ARM1_STRAIGHT_BRACKET_ANGLE 98
-#define ARM2_STRAIGHT_BRACKET_ANGLE 74
+#define ARM1_STRAIGHT_BRACKET_ANGLE 94
+#define ARM2_STRAIGHT_BRACKET_ANGLE 90
 #define ARM2_BRACKET_TO_LENS_ANGLE 60
 
 // This latitude and lens focal length is used to estimate sun movement speed
