@@ -10,7 +10,7 @@ class SunBmp {
         void displayPreview();
 
         template<typename Func>
-        bool burnImage(Func burnPixel) {
+        bool traverseImageForBurning(Func burnPixel) {
             if (_image_offset == 0) {
                 Serial.println("Image offset is not read fron header");
                 return false;
