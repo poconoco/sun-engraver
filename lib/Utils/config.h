@@ -1,6 +1,7 @@
 #define TOUCH_EEPROM_ADDR 0
 #define SPEED_EEPROM_ADDR 16
 #define SUN_DIR_EEPROM_ADDR 18
+#define MONTH_EEPROM_ADDR 20
 
 #define MAX_FILES_COUNT 11
 
@@ -23,10 +24,12 @@
 #define IMAGE_HEIGHT 100
 #define IMAGE_BUFF_SIZE 10  // Should be a divisor of imageHeight
 
+#define PIXEL_SIZE_MM ((float)(LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH)
+
 #define SPEED_SKIP 75  // mm/s
 #define SPEED_BURN 2.4  // mm/s
 #define SPEED_BURN_WHEN_DARK_NEIGHBORS 3  // mm/s, speed when on previous line there are many burnt neighbors
-#define BURN_START_DELAY 250  // ms, additional time to start dark pixel after white
+#define BURN_START_DELAY 0.250  // s, additional time to start dark pixel after white
 
 #define ARM1_STRAIGHT_BRACKET_ANGLE 98
 #define ARM2_STRAIGHT_BRACKET_ANGLE 74

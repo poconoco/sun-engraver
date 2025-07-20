@@ -9,6 +9,7 @@
 
 //#define CALIBRATE_TOUCH
 //#define CALIBRATE_SERVO_ANGLES
+//#define SKIP_BURNING
  
 #include "Touch.h"
 #include "LCD.h"
@@ -30,15 +31,15 @@ void displayList(String*, int);
 int getSelectedIndex(String*, int);
 int selectFile(String*, int);
 bool confirmSelection(String *, int);
-int selectSpeed();
-int selectSunDirection();
+bool selectSpeed(int8_t &resultSpeed);
+bool selectSunDirection(int &resultDirection, int8_t &resultMonth);
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
-bool doBurn(IK2DOF&, int, float, String);
+bool doBurn(IK2DOF&, int, float, int8_t month, String);
 void drawQuadPoint(uint16_t, uint16_t, uint16_t);
 void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16_t color);
 void offsetXY(float& x, float& y, float angleDeg, float distance);
-float getSunSpeed();
+float getSunSpeed(int8_t month);
 void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec);
 
 void setup() {
@@ -78,38 +79,32 @@ void setup() {
     initializeDisplay();
 
     int selectedIndex = -1;
-    int selectedSpeed = -1;  // From 1 to 10
+    int8_t selectedSpeed = -1;  // From 1 to 10
     int selectedSunDirection = -1;
+    int8_t selectedMonth = -1;
     bool done = false;
     while (true) {
       selectedIndex = selectFile(bmpFiles, bmpCount);
       while (confirmSelection(bmpFiles, selectedIndex)) {
-        while (true) {
-          selectedSpeed = selectSpeed();
-          if (selectedSpeed > 0) {
-
-            while (true) {
-              selectedSunDirection = selectSunDirection();
-              if (selectedSunDirection > 0) {
-                while (prepFocusLens()) {
-                  while (focusLens(ik2dof)) {
-                    // Need to define this out otherwise out of flash storage when calibration is included
-                    #ifndef CALIBRATE_TOUCH
-                      if (doBurn(ik2dof, selectedSpeed, selectedSunDirection, bmpFiles[selectedIndex]))
-                        done = true;
-                    #endif
-                    break;
-                  }
-
-                  if (done)
-                    break;
-                }
-              } else {
+        while (selectSpeed(selectedSpeed)) {
+          while (selectSunDirection(selectedSunDirection, selectedMonth)) {
+            while (prepFocusLens()) {
+              while (focusLens(ik2dof)) {
+                // Need to define this out otherwise out of flash storage when calibration is included
+                #ifndef CALIBRATE_TOUCH
+                  if (doBurn(ik2dof, 
+                             selectedSpeed, 
+                             selectedSunDirection, 
+                             selectedMonth, 
+                             bmpFiles[selectedIndex]))
+                    done = true;
+                #endif
                 break;
               }
+
+              if (done)
+                break;
             }
-          } else {
-            break;
           }
 
           if (done)
@@ -175,7 +170,7 @@ bool confirmSelection(String *list, int idx) {
   }
 }
 
-int selectSpeed() {
+bool selectSpeed(int8_t &resultSpeed) {
   Tft.lcd_clear_screen(BLACK);
   Tft.lcd_display_string(100, 50, (const uint8_t*)"Set speed 1..10:", FONT_1608, WHITE);
 
@@ -185,8 +180,8 @@ int selectSpeed() {
   const int speedX = Tft.LCD_WIDTH / 2 - 30 / 2;
   const int speedY = Tft.LCD_HEIGHT / 2 - 20;
 
-  Button dec(speedX - 50, speedY, 30, 30, "-");
-  Button inc(speedX + 50, speedY, 30, 30, "+");
+  Button speedMinus(speedX - 50, speedY, 30, 30, "-");
+  Button speedPlus(speedX + 50, speedY, 30, 30, "+");
   Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
   Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
 
@@ -203,14 +198,14 @@ int selectSpeed() {
       redraw = false;
     }
 
-    if (dec.isClicked()) {
+    if (speedMinus.isClicked()) {
       if (speed > 1) {
         speed--;
         redraw = true;
       }
     }
 
-    if (inc.isClicked()) {
+    if (speedPlus.isClicked()) {
       if (speed < 10) {
         speed++;
         redraw = true;
@@ -219,16 +214,17 @@ int selectSpeed() {
 
     if (confirmButton.isClicked()) {
       EEPROM.put(SPEED_EEPROM_ADDR, speed);
-      return speed;
+      resultSpeed = speed;
+      return true;
     }
 
     if (backButton.isClicked()) {
-      return -1;
+      return false;
     }
   }
 }
 
-int selectSunDirection() {
+bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Tft.lcd_clear_screen(BLACK);
   Tft.lcd_display_string((Tft.LCD_WIDTH - 27*8)/2, 20, (const uint8_t*)"Set sun movement direction:", FONT_1608, WHITE);
 
@@ -238,46 +234,88 @@ int selectSunDirection() {
   const int cx = Tft.LCD_WIDTH / 2;
   const int cy = Tft.LCD_HEIGHT / 2;
 
-  Button dec(cx + 80 - 15, cy - 15, 30, 30, "-");
-  Button inc(cx - 80 - 15, cy - 15, 30, 30, "+");
+  const int dirCtlOffset = -40;
+  const int monCtlOffset = 50;
+
+  Button dirMinus(cx + 80 - 15, cy - 15 + dirCtlOffset, 30, 30, ">");
+  Button dirPlus(cx - 80 - 15, cy - 15 + dirCtlOffset, 30, 30, "<");
+
+  Tft.lcd_display_string((Tft.LCD_WIDTH - 6*8)/2, cy - 35 + monCtlOffset, (const uint8_t*)"Month:", FONT_1608, WHITE);
+
+  Button monMinus(cx - 80 - 15, cy - 15 + monCtlOffset, 30, 30, "-");
+  Button monPlus(cx + 80 - 15, cy - 15 + monCtlOffset, 30, 30, "+");
+
+  Tft.lcd_draw_rect(cx - 15, cy - 15 + monCtlOffset, 30, 30, WHITE);
+  Tft.lcd_fill_rect(cx - 15 + 1, cy - 15 + monCtlOffset + 1, 30-1, 30-1, GREEN);
 
   int direction;
   EEPROM.get(SUN_DIR_EEPROM_ADDR, direction);
   if (direction < 0 || direction >= 360)
     direction = 90;
 
+  int8_t month;
+  EEPROM.get(MONTH_EEPROM_ADDR, month);
+  if (month < 1 || month > 12)
+    month = 7;
+
   int prevDirection = direction;
-  bool redraw = true;
+  bool redrawDir = true;
+  bool redrawMon = true;
   while (true) {
 
-    if (redraw) {
-      drawArrow(cx, cy, 60, prevDirection, BLACK);
-      drawArrow(cx, cy, 60, direction, ORANGE);
+    if (redrawDir) {
+      drawArrow(cx, cy - dirCtlOffset, 60, prevDirection, BLACK);
+      drawArrow(cx, cy - dirCtlOffset, 60, direction, YELLOW);
+
       prevDirection = direction;
-      redraw = false;
+      redrawDir = false;
     }
 
-    if (dec.isClicked()) {
+    if (redrawMon) {
+      Tft.lcd_fill_rect(cx - 8, cy - 8 + monCtlOffset, 16, 16, GREEN);
+      Tft.lcd_display_string(cx - 8 + ((month < 10) ? 4 : 0), cy - 8 + monCtlOffset, (const uint8_t*)String(month).c_str(), FONT_1608, BLACK);
+
+      redrawMon = false;
+    }
+
+    if (dirMinus.isClicked()) {
       direction -= 15;
-      redraw = true;
+      redrawDir = true;
       if (direction < 0)
         direction += 360;
     }
 
-    if (inc.isClicked()) {
+    if (dirPlus.isClicked()) {
       direction += 15;
-      redraw = true;
+      redrawDir = true;
       if (direction >= 360)
         direction -= 360;
     }
 
+    if (monMinus.isClicked()) {
+      month--;
+      redrawMon = true;
+      if (month < 1)
+        month += 12;
+    }
+
+    if (monPlus.isClicked()) {
+      month++;
+      redrawMon = true;
+      if (month > 12)
+        month -= 12;
+    }
+
     if (confirmButton.isClicked()) {
       EEPROM.put(SUN_DIR_EEPROM_ADDR, direction);
-      return direction;
+      EEPROM.put(MONTH_EEPROM_ADDR, month);
+      resultDirection = direction;
+      resultMonth = month;
+      return true;
     }
 
     if (backButton.isClicked()) {
-      return -1;
+      return false;
     }
   }
 }
@@ -368,7 +406,7 @@ bool focusLens(IK2DOF& ik2dof) {
   }
 }
 
-bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, String filename) {
+bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, String filename) {
   const uint16_t statusX = 120;
   const uint16_t statusY = Tft.LCD_HEIGHT - 27;
   Tft.lcd_clear_screen(BLACK);
@@ -395,11 +433,11 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, String filename
   }
 
   #ifdef SKIP_BURNING
-    ik2dof.write(lensXmin, lensYmin);
+    ik2dof.write(LENS_X_MIN, LENS_Y_MIN);
     bool done = true;
   #else
     bool lastBurn = false;
-    const float sunSpeed = getSunSpeed();
+    const float sunSpeed = getSunSpeed(month);
     const unsigned long start = millis();
 
     auto burnPixelFunc = [
@@ -417,20 +455,28 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, String filename
       BitSet<IMAGE_WIDTH> prevLine,
       bool arm
     ){
+      // Calculate lens position
+      float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
+      float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
+      const float timeDeltaSec = (float)(millis() - start) / 1000;      
+      offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
+
+      // Display yellow pixel on a progress image
       const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
       const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-      float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
-      float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
-      const float timeDeltaSec = (float)(millis() - start) / 1000;
-      
-      offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
-
+      // Move lens
       ik2dof.write(lensX, lensY);
 
+      // Now calculate the delay we should stay at this pixel for actual 
+      // burn to happen before moving to the next one
+
+      // If there are many neighbor pixels burnt already, area is already dark and
+      // burn will happen quicker
+
       // If more than 2 of 3 neighbor pixels were burn on the previous line
-      bool prevLineBurnt = 
+      bool prevLineBurnt =
         (prevLine.get(imageX - 1) ? 1 : 0) +
         (prevLine.get(imageX    ) ? 1 : 0) +
         (prevLine.get(imageX + 1) ? 1 : 0) 
@@ -440,23 +486,24 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, String filename
                                           : SPEED_BURN) 
                          : SPEED_SKIP;  // In mm/second
 
-      // Apply speed factor
+      // Apply user-set speed factor
       if (speed != SPEED_SKIP)
         speed = (speed + (0.2 * (speedFactor - 5)));
-        
-      float pixelDistance = (LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH;  // In mm
-      float deltaT = pixelDistance / speed;  // In seconds
 
       #ifdef DEBUG
         Serial.print("speed: ");
         Serial.println(speed);
       #endif
-
+        
+      // Calculate burn time for this pixel
+      float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
       if (burn && !lastBurn && !prevLineBurnt)
-        delay(BURN_START_DELAY);
+        burnTime += BURN_START_DELAY;
 
-      delay((int)(deltaT * 1000.0));
+      // BURN!
+      delay((int)(burnTime * 1000.0));
 
+      // Display final pixel on a progress image
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
       lastBurn = burn;
 
@@ -693,16 +740,42 @@ void offsetXY(float& x, float& y, float angleDeg, float distance) {
   y += sin(angleRad) * distance;
 }
 
-float getSunSpeed() {
-  const float degreePerSec = 15.0 * cos(LATITUDE) / 3600;
-  return degreePerSec * (PI / 180) * FOCAL_LENGTH;
+float getMeanDeclination(int8_t month) {
+  const float declinationByMonth[] = {
+    -20.0, // Jan
+    -10.0, // Feb
+     -2.0, // Mar
+     10.0, // Apr
+     18.0, // May
+     23.0, // Jun
+     20.0, // Jul
+     12.0, // Aug
+      2.0, // Sep
+    -10.0, // Oct
+    -18.0, // Nov
+    -23.0  // Dec
+  };
+  return declinationByMonth[month - 1];  // month: 1–12
+}
+
+float getSunSpeed(int8_t month) {
+  const float equatorSunSpeedDeg = 15.0 / 3600.0;  // deg/sec
+  float declDeg = getMeanDeclination(month);
+  float declRad = declDeg * PI / 180.0;
+  float latRad = LATITUDE * PI / 180.0;
+
+  // Adjust angular speed projection based on tilt
+  float effectiveSpeedRad = (equatorSunSpeedDeg * PI / 180.0) * abs(cos(latRad - declRad));
+  return effectiveSpeedRad * FOCAL_LENGTH;  // mm/s
 }
 
 void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec) {
   const float distance = sunSpeed * timeDeltaSec;
 
-  // Invert sun direction, because focal point moves inverted compared to the sun in the sky
-  float angleRad = (sunDirection + 180) * (PI / 180.0);
+  // Focal point moves inverted compared to the sun direction in the sky,
+  // but to compensate focal point movemnt, we need to invert again, hence
+  // no inversion in the end
+  float angleRad = sunDirection * (PI / 180.0);
   x += cos(angleRad) * distance;
   y += sin(angleRad) * distance;  
 }
