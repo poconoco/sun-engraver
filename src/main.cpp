@@ -41,6 +41,7 @@ void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16
 void offsetXY(float& x, float& y, float angleDeg, float distance);
 float getSunSpeed(int8_t month);
 void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec);
+void draw_middle_label(const char *label, int y, uint16_t color);
 
 void setup() {
 
@@ -137,7 +138,7 @@ bool confirmSelection(String *list, int idx) {
 
   if (! bmpFile) {
       bmpFile.close();
-      Tft.lcd_display_string(20, 50, (const uint8_t*)"Failed to open file!", FONT_1608, RED);
+      draw_middle_label("Failed to open file!", 50, RED);
       delay(2000);
       return false;
   }
@@ -146,9 +147,9 @@ bool confirmSelection(String *list, int idx) {
 
   if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
-    Tft.lcd_display_string(20, 50, (const uint8_t*)"Bad header,", FONT_1608, RED);
-    Tft.lcd_display_string(20, 70, (const uint8_t*)"bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", FONT_1608, RED);
-    Tft.lcd_display_string(20, 90, (const uint8_t*)"not be compressed and be 24bit", FONT_1608, RED);
+    draw_middle_label("Bad header,", 50, RED);
+    draw_middle_label("bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", 70, RED);
+    draw_middle_label("not be compressed and be 24bit", 90, RED);
     delay(2000);
     return false;
   }
@@ -172,7 +173,7 @@ bool confirmSelection(String *list, int idx) {
 
 bool selectSpeed(int8_t &resultSpeed) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Set speed 1..10:", FONT_1608, WHITE);
+  draw_middle_label("Set speed 1..10:", 50, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -226,7 +227,7 @@ bool selectSpeed(int8_t &resultSpeed) {
 
 bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string((Tft.LCD_WIDTH - 27*8)/2, 20, (const uint8_t*)"Set sun movement direction:", FONT_1608, WHITE);
+  draw_middle_label("Set sun movement direction:", 20, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -240,7 +241,7 @@ bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Button dirMinus(cx + 80 - 15, cy - 15 + dirCtlOffset, 30, 30, ">");
   Button dirPlus(cx - 80 - 15, cy - 15 + dirCtlOffset, 30, 30, "<");
 
-  Tft.lcd_display_string((Tft.LCD_WIDTH - 6*8)/2, cy - 35 + monCtlOffset, (const uint8_t*)"Month:", FONT_1608, WHITE);
+  draw_middle_label("Month:", cy - 35 + monCtlOffset, WHITE);
 
   Button monMinus(cx - 80 - 15, cy - 15 + monCtlOffset, 30, 30, "-");
   Button monPlus(cx + 80 - 15, cy - 15 + monCtlOffset, 30, 30, "+");
@@ -322,8 +323,7 @@ bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
 
 bool prepFocusLens() {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Cover lens with", FONT_1608, WHITE);
-  Tft.lcd_display_string(100+2*8, 70, (const uint8_t*)"focusing cap", FONT_1608, WHITE);
+  draw_middle_label("Prepare to focus", 50, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -341,12 +341,35 @@ bool prepFocusLens() {
 
 bool focusLens(IK2DOF& ik2dof) {
   Tft.lcd_clear_screen(BLACK);
-  Tft.lcd_display_string(100, 50, (const uint8_t*)"Now focus lens", FONT_1608, WHITE);
+  draw_middle_label("Focus", 50, WHITE);
 
-  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
+  Button pauseButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 75, 80, 30, "Pause");
+  Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "BURN >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
   ik2dof.write(LENS_X_MIN, LENS_Y_MIN);
+
+  bool result;
+  bool pause = false;
+
+  auto processButtons = [&pauseButton, &confirmButton, &backButton, &ik2dof, &result, &pause]() {
+      if (confirmButton.isClicked()) {
+        result = true;
+        return true;
+      }
+
+      if (backButton.isClicked()) {
+        ik2dof.detach();
+        result = false;
+        return true;
+      }
+
+      if (pauseButton.isClicked()) {
+        pause = !pause;
+      }
+
+      return false;
+  };
 
   while (true) {
     const float maxDelta = LENS_X_MAX - LENS_X_MIN;
@@ -356,50 +379,45 @@ bool focusLens(IK2DOF& ik2dof) {
       // A timeout at the corner to allow for focusing at the corners easier
       // Have to process buttons inside it as well, to not degrade responsiveness
       for (uint8_t i = 0; i < 100; i++) {
-        if (confirmButton.isClicked()) {
-          return true;
-        }
+        if (processButtons())
+          return result;
 
-        if (backButton.isClicked()) {
-          ik2dof.detach();
-          return false;
-        }
         delay(10);
       }
 
       delay(1000);
 
       for (float i = 0; i < maxDelta; i++) {
-        float x;
-        float y;
-        switch (direction) {
-          case 0:
-            x = LENS_X_MIN + i;
-            y = LENS_Y_MIN;
-            break;
-          case 1:
-            x = LENS_X_MAX;
-            y = LENS_Y_MIN + i;
-            break;
-          case 2:
-            x = LENS_X_MAX - i;
-            y = LENS_Y_MAX;
-            break;
-          case 3:
-            x = LENS_X_MIN;
-            y = LENS_Y_MAX - i;
-            break;
+        if (pause) {
+          i--;
+        } else {
+          float x;
+          float y;
+          switch (direction) {
+            case 0:
+              x = LENS_X_MIN + i;
+              y = LENS_Y_MIN;
+              break;
+            case 1:
+              x = LENS_X_MAX;
+              y = LENS_Y_MIN + i;
+              break;
+            case 2:
+              x = LENS_X_MAX - i;
+              y = LENS_Y_MAX;
+              break;
+            case 3:
+              x = LENS_X_MIN;
+              y = LENS_Y_MAX - i;
+              break;
+          }
+
+          ik2dof.write(x, y);          
         }
 
-        ik2dof.write(x, y);
-        if (confirmButton.isClicked()) {
-          return true;
-        }
+        if (processButtons())
+          return result;
 
-        if (backButton.isClicked()) {
-          ik2dof.detach();
-          return false;
-        }
         delay(10);
       }
     }
@@ -513,7 +531,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       return true;
     };
 
-    bool done = sunBmp.burnImage(burnPixelFunc);
+    bool done = sunBmp.traverseImageForBurning(burnPixelFunc);
   #endif
 
   bmpFile.close();
@@ -645,11 +663,7 @@ void displayList(String* list, int count) {
       int x = FILE_LIST_X;
       int y = FILE_LIST_Y + i * FILE_ROW_HEIGHT;
 
-      if (i % 2 == 0) {
-          Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, WHITE);
-      } else {
-          Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, YELLOW);
-      }
+      Tft.lcd_display_string(x, y, (const uint8_t *)filename.c_str(), FONT_1608, (i % 2 == 0) ? WHITE : YELLOW);
   }
 }
 
@@ -778,4 +792,9 @@ void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed,
   float angleRad = sunDirection * (PI / 180.0);
   x += cos(angleRad) * distance;
   y += sin(angleRad) * distance;  
+}
+
+void draw_middle_label(const char *label, int y, uint16_t color) {
+  size_t len = strlen(label);
+  Tft.lcd_display_string((Tft.LCD_WIDTH - len*8)/2, y, (const uint8_t*)label, FONT_1608, color);
 }
