@@ -479,14 +479,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       const float timeDeltaSec = (float)(millis() - start) / 1000;      
       offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
 
-      // Display yellow pixel on a progress image
-      const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
-      const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
-      drawQuadPoint(progressViewX, progressViewY, YELLOW);
-
-      // Move lens
-      ik2dof.write(lensX, lensY);
-
       // Now calculate the delay we should stay at this pixel for actual 
       // burn to happen before moving to the next one
 
@@ -518,8 +510,35 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       if (burn && !lastBurn && !prevLineBurnt)
         burnTime += BURN_START_DELAY;
 
-      // BURN!
-      delay((int)(burnTime * 1000.0));
+      // Display yellow pixel on a progress image
+      const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
+      const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
+      drawQuadPoint(progressViewX, progressViewY, YELLOW);
+
+      // Now move smoothly
+      const uint16_t dT = 20;  // ms
+      const unsigned long burnTimeMs = burnTime * 1000.0;  // s to ms
+      const uint16_t steps = burnTimeMs / 20;
+
+      float startX = ik2dof.x();
+      float startY = ik2dof.y();
+      float dX = (lensX - startX) / steps;
+      float dY = (lensY - startY) / steps;
+
+      const unsigned long startBurnTime = millis();
+      for (uint16_t burnStep = 0; burnStep < steps; burnStep++) {
+        // Move lens interpolated
+        ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
+        delay(dT - (millis() - (startBurnTime + dT * burnStep)));
+      }
+
+      // Move lens to final pos
+      ik2dof.write(lensX, lensY);
+
+      // Remaining delay
+      unsigned long actualBurnTime = millis() - startBurnTime;
+      if (burnTimeMs > actualBurnTime)
+        delay(burnTimeMs - actualBurnTime);
 
       // Display final pixel on a progress image
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);

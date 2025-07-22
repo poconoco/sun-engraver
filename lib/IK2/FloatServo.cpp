@@ -15,7 +15,7 @@ void FloatServo::attach() {
     if (_attached)
         return;
 
-    Servo::attach(_pin, _min, _max);
+    HFServo::attach(_pin, _min, _max);
     _attached = true;
 }
 
@@ -23,12 +23,12 @@ void FloatServo::detach() {
     if (!_attached)
         return;
 
-    Servo::detach();
+    HFServo::detach();
     _attached = false;
 }
 
 void FloatServo::writeFloat(float angle) {
     int pulse = mapFloat(angle, 0.0, 180.0, _min, _max);
-    writeMicroseconds(pulse);
+    HFServo::writeMicroseconds(pulse);
 }
 

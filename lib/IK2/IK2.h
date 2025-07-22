@@ -15,6 +15,8 @@ public:
     );
 
     void write(float x, float y);
+    float x();
+    float y();
     void detach();
 
 private:
@@ -26,6 +28,8 @@ private:
     bool _arm2Inverted;
     FloatServo &_servoArm1;
     FloatServo &_servoArm2;
+    float _x;
+    float _y;
 
     struct Point2D {
         float x;
