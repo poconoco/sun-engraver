@@ -470,8 +470,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       int imageX, 
       int imageY, 
       bool burn,
-      BitSet<IMAGE_WIDTH> prevLine,
-      bool arm
+      BitSet<IMAGE_WIDTH> prevLine
     ){
       // Calculate lens position
       float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
