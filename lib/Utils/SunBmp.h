@@ -23,9 +23,8 @@ class SunBmp {
             uint16_t buffidx = 0;
 
             // Move lens to start position
-            burnPixel(0, 0, 0, burnMask[0], false);
+            burnPixel(0, 0, 0, burnMask[0]);
             delay(250);
-            burnPixel(0, 0, 0, burnMask[0], true);
 
             bool zig = true;
             for (uint16_t y = 0; y < IMAGE_HEIGHT; y++) {
@@ -46,8 +45,7 @@ class SunBmp {
                         if (! burnPixel(
                                   x, y, 
                                   burnMask[currentMask].get(x),
-                                  burnMask[(currentMask + 1) % 2],
-                                  true
+                                  burnMask[(currentMask + 1) % 2]
                               )
                         ) {
                             return false;
@@ -57,8 +55,7 @@ class SunBmp {
                         if (! burnPixel(
                                   x, y, 
                                   burnMask[currentMask].get(x), 
-                                  burnMask[(currentMask + 1) % 2],
-                                  true
+                                  burnMask[(currentMask + 1) % 2]
                               )
                         ) {
                             return false;
