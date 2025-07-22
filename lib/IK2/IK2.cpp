@@ -20,7 +20,9 @@ IK2DOF::IK2DOF(
     , _arm1Inverted(arm1Inverted)
     , _arm2Inverted(arm2Inverted)
     , _servoArm1(servoArm1)
-    , _servoArm2(servoArm2) {}
+    , _servoArm2(servoArm2)
+    , _x(0.0)
+    , _y(0.0) {}
 
 void IK2DOF::write(float x, float y) {
     #ifdef IK_DEBUG
@@ -76,7 +78,19 @@ void IK2DOF::write(float x, float y) {
 
     _servoArm1.writeFloat(arm1Angle);
     _servoArm2.writeFloat(arm2Angle);
+
+    _x = x;
+    _y = y;
 }
+
+float IK2DOF::x() {
+    return _x;
+}
+
+float IK2DOF::y() {
+    return _y;
+}
+
 
 void IK2DOF::detach() {
     _servoArm1.detach();
