@@ -49,15 +49,18 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(ARM1_PIN, 310, 2550);
-  FloatServo servoArm2(ARM2_PIN, 560, 2650);
+  FloatServo servoArm1(ARM1_PIN, 120, 2500);
+  FloatServo servoArm2(ARM2_PIN, 630, 2570);
 
   #if defined(CALIBRATE_SERVO_ANGLES)
     servoArm1.attach();
     servoArm2.attach();
 
     servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
-    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
+    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE-90);
+
+    // servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
+    // servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
 
     while (true)
       delay(1000);
@@ -470,7 +473,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       int imageX, 
       int imageY, 
       bool burn,
-      BitSet<IMAGE_WIDTH> prevLine
+      BitSet<IMAGE_WIDTH> prevLine,
+      bool leftToRight
     ){
       // Calculate lens position
       float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
@@ -530,6 +534,11 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
         delay(dT - (millis() - (startBurnTime + dT * burnStep)));
       }
+
+      // When traveling right to left in my setup lens is always lower 
+      // than right to left, so compensate for this
+      if (!leftToRight)
+        lensY += 1.3; // +2mm compensation
 
       // Move lens to final pos
       ik2dof.write(lensX, lensY);
