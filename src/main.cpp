@@ -538,7 +538,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       // When traveling right to left in my setup lens is always lower 
       // than right to left, so compensate for this
       if (!leftToRight)
-        lensY += 1.3; // +2mm compensation
+        lensY += 1.3; // +1.3mm compensation
 
       // Move lens to final pos
       ik2dof.write(lensX, lensY);

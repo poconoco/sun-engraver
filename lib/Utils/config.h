@@ -17,7 +17,7 @@
 #define LENS_X_MIN 60
 #define LENS_X_MAX 120
 #define LENS_Y_MIN -10
-#define LENS_Y_MAX 5
+#define LENS_Y_MAX 50
 
 // Also should be square
 #define IMAGE_WIDTH 100
@@ -37,5 +37,5 @@
 
 // This latitude and lens focal length is used to estimate sun movement speed
 #define LATITUDE 48.29  // Chernivtsi, Ukraine
-#define FOCAL_LENGTH 178.2  // mm
+#define FOCAL_LENGTH 180  // mm
 
