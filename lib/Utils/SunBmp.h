@@ -23,10 +23,10 @@ class SunBmp {
             uint16_t buffidx = 0;
 
             // Move lens to start position
-            burnPixel(0, 0, 0, burnMask[0]);
+            burnPixel(0, 0, 0, burnMask[0], true);
             delay(250);
 
-            bool zig = true;
+            bool leftToRight = true;
             for (uint16_t y = 0; y < IMAGE_HEIGHT; y++) {
                 buffidx = 0;
 
@@ -40,12 +40,13 @@ class SunBmp {
                 }
 
                 // now we need to traverse line zig-zagging
-                if (zig) {
+                if (leftToRight) {
                     for (uint16_t x = 0; x < IMAGE_WIDTH; x++)
                         if (! burnPixel(
                                   x, y, 
                                   burnMask[currentMask].get(x),
-                                  burnMask[(currentMask + 1) % 2]
+                                  burnMask[(currentMask + 1) % 2],
+                                  leftToRight
                               )
                         ) {
                             return false;
@@ -55,7 +56,8 @@ class SunBmp {
                         if (! burnPixel(
                                   x, y, 
                                   burnMask[currentMask].get(x), 
-                                  burnMask[(currentMask + 1) % 2]
+                                  burnMask[(currentMask + 1) % 2],
+                                  leftToRight
                               )
                         ) {
                             return false;
@@ -63,7 +65,7 @@ class SunBmp {
                 }
 
                 currentMask = (currentMask + 1) % 2;
-                zig = !zig;
+                leftToRight = !leftToRight;
             }
 
             return true;
