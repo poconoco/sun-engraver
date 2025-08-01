@@ -16,8 +16,8 @@
 // Should be square (LENS_X_MAX - LENS_X_MIN == LENS_Y_MAX - LENS_Y_MIN)
 #define LENS_X_MIN 60
 #define LENS_X_MAX 120
-#define LENS_Y_MIN -10
-#define LENS_Y_MAX 50
+#define LENS_Y_MIN -15
+#define LENS_Y_MAX 45
 
 // Also should be square
 #define IMAGE_WIDTH 100
@@ -27,11 +27,17 @@
 #define PIXEL_SIZE_MM ((float)(LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH)
 
 #define SPEED_SKIP 75  // mm/s
-#define SPEED_BURN 2.4  // mm/s
-#define SPEED_BURN_WHEN_DARK_NEIGHBORS 3  // mm/s, speed when on previous line there are many burnt neighbors
-#define BURN_START_DELAY 0.250  // s, additional time to start dark pixel after white
+#define SPEED_BURN 2.0  // mm/s
+#define SPEED_BURN_WHEN_DARK_NEIGHBORS 3.5  // mm/s, speed when on previous line there are many burnt neighbors
+#define BURN_START_DELAY_MIN 0.200  // s, additional time to start dark pixel after white
+#define BURN_START_DELAY_MAX 1.0  // s, additional time to start dark pixel after white
 
-#define ARM1_STRAIGHT_BRACKET_ANGLE 90
+// On reverse move (right-to-left), lens sags down and right due to backlash, compensate for this
+#define REVERSE_MOVE_Y_COMPENSATION 1.3
+#define REVERSE_MOVE_X_COMPENSATION -1.3
+
+
+#define ARM1_STRAIGHT_BRACKET_ANGLE 88
 #define ARM2_STRAIGHT_BRACKET_ANGLE 90
 #define ARM2_BRACKET_TO_LENS_ANGLE 60
 

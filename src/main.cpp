@@ -49,15 +49,15 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(ARM1_PIN, 120, 2500);
+  FloatServo servoArm1(ARM1_PIN, 120, 2470);
   FloatServo servoArm2(ARM2_PIN, 630, 2570);
 
   #if defined(CALIBRATE_SERVO_ANGLES)
     servoArm1.attach();
     servoArm2.attach();
 
-    servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
-    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE-90);
+    servoArm1.writeFloat(180);
+    servoArm2.writeFloat(90);
 
     // servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
     // servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
@@ -434,6 +434,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
   Tft.lcd_display_string(statusX, statusY, (const uint8_t*)"Burning...", FONT_1608, WHITE);
 
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
+  Button pauseButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "Pause");
 
   File bmpFile = SD.open(filename);
 
@@ -457,14 +458,15 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
     ik2dof.write(LENS_X_MIN, LENS_Y_MIN);
     bool done = true;
   #else
-    bool lastBurn = false;
+    bool prevBurn = false;
     const float sunSpeed = getSunSpeed(month);
     const unsigned long start = millis();
 
     auto burnPixelFunc = [
       &ik2dof,
-      &lastBurn, 
+      &prevBurn,
       &backButton,
+      &pauseButton,
       sunSpeed,
       speedFactor,
       sunDirection,
@@ -473,7 +475,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       int imageX, 
       int imageY, 
       bool burn,
-      BitSet<IMAGE_WIDTH> prevLine,
+      bool nextBurn,
+      BitSet<IMAGE_WIDTH> &prevLine,
       bool leftToRight
     ){
       // Calculate lens position
@@ -495,13 +498,17 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         (prevLine.get(imageX + 1) ? 1 : 0) 
           > 2;
 
+      // Stop horizontal lines 1pix earlier, because we always overburn
+      if (prevBurn && burn && !nextBurn)
+        burn = false;
+
       float speed = burn ? (prevLineBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
                                           : SPEED_BURN) 
                          : SPEED_SKIP;  // In mm/second
 
-      // Apply user-set speed factor
-      if (speed != SPEED_SKIP)
-        speed = (speed + (0.2 * (speedFactor - 5)));
+      if (burn)
+        // Apply user-set speed factor
+        speed = (speed * (speedFactor / 10.0));
 
       #ifdef DEBUG
         Serial.print("speed: ");
@@ -510,8 +517,11 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         
       // Calculate burn time for this pixel
       float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
-      if (burn && !lastBurn && !prevLineBurnt)
-        burnTime += BURN_START_DELAY;
+
+      // Apply burning start delay
+      if (burn && !prevBurn && !prevLineBurnt) {
+        burnTime += mapFloat(speedFactor, 1, 10, BURN_START_DELAY_MAX, BURN_START_DELAY_MIN);
+      }
 
       // Display yellow pixel on a progress image
       const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
@@ -535,10 +545,10 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         delay(dT - (millis() - (startBurnTime + dT * burnStep)));
       }
 
-      // When traveling right to left in my setup lens is always lower 
-      // than right to left, so compensate for this
-      if (!leftToRight)
-        lensY += 1.3; // +1.3mm compensation
+      if (!leftToRight) {
+        lensY += REVERSE_MOVE_Y_COMPENSATION;
+        lensX += REVERSE_MOVE_X_COMPENSATION;
+      }
 
       // Move lens to final pos
       ik2dof.write(lensX, lensY);
@@ -550,10 +560,24 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       // Display final pixel on a progress image
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
-      lastBurn = burn;
+      prevBurn = burn;
 
       if (backButton.isClicked())
         return false;
+
+      if (pauseButton.isClicked()) {
+        // Wait for it to be released
+        while (pauseButton.isClicked()) {
+          delay(10);
+        }
+
+        // Now wait when it will be pressed again, but also allow back
+        while (!pauseButton.isClicked()) {
+          delay(10);
+          if (backButton.isClicked())
+            return false;
+        }
+      }
 
       return true;
     };
