@@ -485,8 +485,11 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       const float timeDeltaSec = (float)(millis() - start) / 1000;      
       offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
 
-      // Now calculate the delay we should stay at this pixel for actual 
-      // burn to happen before moving to the next one
+      // Backlash compensation
+      if (!leftToRight) {
+        lensY += REVERSE_MOVE_Y_COMPENSATION;
+        lensX += REVERSE_MOVE_X_COMPENSATION;
+      }
 
       // If there are many neighbor pixels burnt already, area is already dark and
       // burn will happen quicker
@@ -515,7 +518,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         Serial.println(speed);
       #endif
         
-      // Calculate burn time for this pixel
+      // Now calculate the delay we should stay at this pixel for actual 
+      // burn to happen before moving to the next one
       float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
 
       // Apply burning start delay
@@ -543,11 +547,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         // Move lens interpolated
         ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
         delay(dT - (millis() - (startBurnTime + dT * burnStep)));
-      }
-
-      if (!leftToRight) {
-        lensY += REVERSE_MOVE_Y_COMPENSATION;
-        lensX += REVERSE_MOVE_X_COMPENSATION;
       }
 
       // Move lens to final pos
