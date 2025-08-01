@@ -19,23 +19,26 @@ class SunBmp {
             _file.seek(_image_offset);
 
             BitSet<IMAGE_WIDTH> burnMask[2];
-            uint8_t currentMask = 0;
+            uint8_t currentMaskIdx = 0;
             uint16_t buffidx = 0;
 
             // Move lens to start position
-            burnPixel(0, 0, 0, burnMask[0], true);
+            burnPixel(0, 0, false, false, burnMask[0], true);
             delay(250);
 
             bool leftToRight = true;
             for (uint16_t y = 0; y < IMAGE_HEIGHT; y++) {
                 buffidx = 0;
 
+                BitSet<IMAGE_WIDTH> &currentMask = burnMask[currentMaskIdx];
+                BitSet<IMAGE_WIDTH> &prevMask = burnMask[(currentMaskIdx + 1) % 2];
+
                 // Convert to monochrome
                 // We need to read entire line first, because below we will traverse it 
                 // eitehr forward or backward
                 for(uint16_t x = 0; x < IMAGE_WIDTH; x++) {
                     const uint32_t allColors = _file.read() + _file.read() + _file.read();
-                    burnMask[currentMask].set(x, allColors < _blackThreshold * 3);
+                    currentMask.set(x, allColors < _blackThreshold * 3);
                     buffidx += 3;
                 }
 
@@ -44,8 +47,9 @@ class SunBmp {
                     for (uint16_t x = 0; x < IMAGE_WIDTH; x++)
                         if (! burnPixel(
                                   x, y, 
-                                  burnMask[currentMask].get(x),
-                                  burnMask[(currentMask + 1) % 2],
+                                  currentMask.get(x),
+                                  x + 1 < IMAGE_HEIGHT ? currentMask.get(x+1) : false,
+                                  prevMask,
                                   leftToRight
                               )
                         ) {
@@ -55,8 +59,9 @@ class SunBmp {
                     for (int x = IMAGE_WIDTH - 1; x >= 0; x--)
                         if (! burnPixel(
                                   x, y, 
-                                  burnMask[currentMask].get(x), 
-                                  burnMask[(currentMask + 1) % 2],
+                                  currentMask.get(x),
+                                  x - 1 >= 0 ? currentMask.get(x-1) : false,
+                                  prevMask,
                                   leftToRight
                               )
                         ) {
@@ -64,7 +69,7 @@ class SunBmp {
                         }
                 }
 
-                currentMask = (currentMask + 1) % 2;
+                currentMaskIdx = (currentMaskIdx + 1) % 2;
                 leftToRight = !leftToRight;
             }
 
