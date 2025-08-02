@@ -12,7 +12,9 @@ class SunBmp {
         template<typename Func>
         bool traverseImageForBurning(Func burnPixel, bool halfScan) {
             if (_image_offset == 0) {
-                Serial.println("Image offset is not read fron header");
+                #ifdef DEBUG
+                    Serial.println("Image offset is not read fron header");
+                #endif
                 return false;
             }
 
@@ -34,7 +36,7 @@ class SunBmp {
                 // eitehr forward or backward
                 for(uint16_t x = 0; x < IMAGE_WIDTH; x++) {
                     const uint32_t allColors = _file.read() + _file.read() + _file.read();
-                    currentMask.set(x, allColors < _blackThreshold * 3);
+                    currentMask.set(x, allColors < BLACK_THRESHOLD * 3);
                 }
 
                 if (halfScan && (y % 2))
@@ -78,7 +80,6 @@ class SunBmp {
     private:
         SDLib::File &_file;
         uint32_t _image_offset;
-        uint8_t _blackThreshold;
 
         uint16_t read16(SDLib::File &f);
         uint32_t read32(SDLib::File &f);

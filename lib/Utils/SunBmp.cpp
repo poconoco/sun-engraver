@@ -5,7 +5,6 @@
 
 SunBmp::SunBmp(SDLib::File &file)
     : _file(file)
-    , _blackThreshold(200)  // If avg color intensity (0..255) less than this threshold, use black
 {}
 
 bool SunBmp::bmpReadHeader() {
@@ -114,7 +113,7 @@ void SunBmp::displayPreview() {
             
             uint8_t buffidx = 0;
             int offset_x = j * IMAGE_BUFF_SIZE;
-            uint16_t __color[IMAGE_BUFF_SIZE];
+            BitSet<IMAGE_BUFF_SIZE> isBlack;
 
             // convert from 24 bit to 16 bit
             for(uint16_t k = 0; k < IMAGE_BUFF_SIZE; k++) {
@@ -125,8 +124,8 @@ void SunBmp::displayPreview() {
                     __color[k] = __color[k]<<5 | (sdbuffer[buffidx+0]>>3);      // blue
                 #else
                     // Convert to monochrome for preview
-                    uint32_t allColors = (sdbuffer[buffidx+2] + sdbuffer[buffidx+1] + sdbuffer[buffidx+0]);
-                    __color[k] = (allColors > _blackThreshold * 3) ? WHITE : BLACK;
+                    uint32_t allColors = ((uint32_t)sdbuffer[buffidx+2] + sdbuffer[buffidx+1] + sdbuffer[buffidx+0]);
+                    isBlack.set(k, allColors < BLACK_THRESHOLD * 3);
                 #endif
                 buffidx += 3;
             }
@@ -139,11 +138,12 @@ void SunBmp::displayPreview() {
                 __LCD_DC_SET();
                 __LCD_CS_CLR();
                 for (uint16_t m = 0; m < IMAGE_BUFF_SIZE; m ++) {
-                    __LCD_WRITE_BYTE(__color[m] >> 8 );
-                    __LCD_WRITE_BYTE(__color[m] & 0xFF);
+                    const uint16_t color = isBlack.get(m) ? BLACK : WHITE;
+                    __LCD_WRITE_BYTE(color >> 8 );
+                    __LCD_WRITE_BYTE(color & 0xFF);
                     // Twice for double the size on the X axis
-                    __LCD_WRITE_BYTE(__color[m] >> 8 );
-                    __LCD_WRITE_BYTE(__color[m] & 0xFF);
+                    __LCD_WRITE_BYTE(color >> 8 );
+                    __LCD_WRITE_BYTE(color & 0xFF);
                 }
                 __LCD_CS_SET();
             }

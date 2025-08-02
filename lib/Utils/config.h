@@ -24,6 +24,8 @@
 #define IMAGE_WIDTH 100
 #define IMAGE_HEIGHT 100
 #define IMAGE_BUFF_SIZE 10  // Should be a divisor of imageHeight
+#define BLACK_THRESHOLD 150  // If avg color intensity (0..255) less than this threshold, use black
+
 
 #define PIXEL_SIZE_MM ((float)(LENS_X_MAX - LENS_X_MIN) / (float)IMAGE_WIDTH)
 

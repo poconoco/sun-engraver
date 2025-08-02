@@ -86,12 +86,12 @@
 #define ST7789 0x52
 #define HX8347 0x00
 
-typedef enum{
+typedef enum {
     Rotation_0_D  = 0,	//The display interface is displayed , left to right, up to down
     Rotation_90_D ,
     Rotation_180_D ,
     Rotation_270_D ,
-}LCD_SCAN_DIR;
+} LCD_SCAN_DIR;
 
 class TFT
 {
