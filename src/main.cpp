@@ -32,11 +32,11 @@ void displayList(String*, int);
 int getSelectedIndex(String*, int);
 int selectFile(String*, int);
 bool confirmSelection(String *, int);
-bool selectSpeed(int8_t &resultSpeed);
+bool selectSpeed(int8_t &resultSpeed, bool &halfScan);
 bool selectSunDirection(int &resultDirection, int8_t &resultMonth);
 bool prepFocusLens();
 bool focusLens(IK2DOF&);
-bool doBurn(IK2DOF&, int, float, int8_t month, String);
+bool doBurn(IK2DOF&, int, bool, float, int8_t month, String);
 void drawQuadPoint(uint16_t, uint16_t, uint16_t);
 void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16_t color);
 void offsetXY(float& x, float& y, float angleDeg, float distance);
@@ -85,13 +85,14 @@ void setup() {
 
     int selectedIndex = -1;
     int8_t selectedSpeed = -1;  // From 1 to 10
+    bool halfScan = false;
     int selectedSunDirection = -1;
     int8_t selectedMonth = -1;
     bool done = false;
     while (true) {
       selectedIndex = selectFile(bmpFiles, bmpCount);
       while (confirmSelection(bmpFiles, selectedIndex)) {
-        while (selectSpeed(selectedSpeed)) {
+        while (selectSpeed(selectedSpeed, halfScan)) {
           while (selectSunDirection(selectedSunDirection, selectedMonth)) {
             while (prepFocusLens()) {
               while (focusLens(ik2dof)) {
@@ -99,6 +100,7 @@ void setup() {
                 #ifndef CALIBRATE_TOUCH
                   if (doBurn(ik2dof, 
                              selectedSpeed, 
+                             halfScan,
                              selectedSunDirection, 
                              selectedMonth, 
                              bmpFiles[selectedIndex]))
@@ -175,7 +177,7 @@ bool confirmSelection(String *list, int idx) {
   }
 }
 
-bool selectSpeed(int8_t &resultSpeed) {
+bool selectSpeed(int8_t &resultSpeed, bool &halfScan) {
   Tft.lcd_clear_screen(BLACK);
   draw_middle_label("Speed 1..10:", 50, WHITE);
 
@@ -183,15 +185,21 @@ bool selectSpeed(int8_t &resultSpeed) {
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
 
   const int speedX = Tft.LCD_WIDTH / 2 - 30 / 2;
-  const int speedY = Tft.LCD_HEIGHT / 2 - 20;
+  const int speedY = Tft.LCD_HEIGHT / 2 - 40;
+  const int halsScanX = speedX - 35;
+  const int halfScanY = speedY + 60;
 
   Button speedMinus(speedX - 50, speedY, 30, 30, "-");
   Button speedPlus(speedX + 50, speedY, 30, 30, "+");
   Tft.lcd_draw_rect(speedX, speedY, 30, 30, WHITE);
   Tft.lcd_fill_rect(speedX+1, speedY+1, 30-1, 30-1, GREEN);
 
+  Button halfScanToggle(halsScanX, halfScanY, 100, 30, "Half scan");
+
   int speed;
   EEPROM.get(SPEED_EEPROM_ADDR, speed);
+  EEPROM.get(HALF_SCAN_EEPROM_ADDR, halfScan);
+
   if (speed < 0 || speed > 10)
     speed = 5;
   bool redraw = true;
@@ -200,6 +208,8 @@ bool selectSpeed(int8_t &resultSpeed) {
     if (redraw) {
       Tft.lcd_fill_rect(speedX + 7, speedY + 7, 16, 16, GREEN);
       Tft.lcd_display_string(speedX + (speed < 10 ? 11 : 7), speedY + 7, (const uint8_t*)String(speed).c_str(), FONT_1608, BLACK);
+      Tft.lcd_draw_rect(halsScanX + 4, halfScanY + 4, 100 - 8, 30 - 8, halfScan ? GREEN : BLACK);
+
       redraw = false;
     }
 
@@ -217,8 +227,19 @@ bool selectSpeed(int8_t &resultSpeed) {
       }
     }
 
+    if (halfScanToggle.isClicked()) {
+      // WTF halfScan = !halfScan; does not work instead of below?
+      if (halfScan) 
+        halfScan = false;
+      else
+        halfScan = true;
+
+      redraw = true;
+    }
+
     if (confirmButton.isClicked()) {
       EEPROM.put(SPEED_EEPROM_ADDR, speed);
+      EEPROM.put(HALF_SCAN_EEPROM_ADDR, halfScan);
       resultSpeed = speed;
       return true;
     }
@@ -226,6 +247,8 @@ bool selectSpeed(int8_t &resultSpeed) {
     if (backButton.isClicked()) {
       return false;
     }
+
+    delay(10);
   }
 }
 
@@ -429,7 +452,7 @@ bool focusLens(IK2DOF& ik2dof) {
   }
 }
 
-bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, String filename) {
+bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, int8_t month, String filename) {
   const uint16_t statusX = 120;
   const uint16_t statusY = Tft.LCD_HEIGHT - 27;
   Tft.lcd_clear_screen(BLACK);
@@ -508,17 +531,18 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       // burn will happen quicker
 
       // If more than 2 of 3 neighbor pixels were burn on the previous line
-      bool prevLineBurnt =
+      bool manyNeighborsBurnt = prevBurn && (
         (prevLine.get(imageX - 1) ? 1 : 0) +
         (prevLine.get(imageX    ) ? 1 : 0) +
         (prevLine.get(imageX + 1) ? 1 : 0) 
-          > 1;
+          > 2
+      );
 
       // Stop horizontal lines 1pix earlier, because we always overburn
       const bool burnAux = burn && !(prevBurn && burn && !nextBurn);
 
-      float speed = burnAux ? (prevLineBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
-                                             : SPEED_BURN) 
+      float speed = burnAux ? (manyNeighborsBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
+                                                  : SPEED_BURN) 
                             : SPEED_SKIP;  // In mm/second
 
       if (burnAux)
@@ -551,7 +575,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       float burnTime = moveDistance / speed;  // In seconds
 
       // Apply burning start delay
-      if (burnAux && !prevBurn && !prevLineBurnt) {
+      if (burnAux && !prevBurn && !manyNeighborsBurnt) {
         burnTime += mapFloat(speedFactor, 1, 10, BURN_START_DELAY_MAX, BURN_START_DELAY_MIN);
       } else {
         // Now move smoothly
@@ -593,7 +617,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       return true;
     };
 
-    bool done = sunBmp.traverseImageForBurning(burnPixelFunc);
+    bool done = sunBmp.traverseImageForBurning(burnPixelFunc, halfScan);
   #endif
 
   bmpFile.close();

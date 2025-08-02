@@ -2,6 +2,7 @@
 #define SPEED_EEPROM_ADDR 16
 #define SUN_DIR_EEPROM_ADDR 18
 #define MONTH_EEPROM_ADDR 20
+#define HALF_SCAN_EEPROM_ADDR 22
 
 #define MAX_FILES_COUNT 11
 
@@ -28,7 +29,7 @@
 
 #define SPEED_SKIP 75  // mm/s
 #define SPEED_BURN 2.0  // mm/s
-#define SPEED_BURN_WHEN_DARK_NEIGHBORS 4.0  // mm/s, speed when on previous line there are many burnt neighbors
+#define SPEED_BURN_WHEN_DARK_NEIGHBORS 3.0  // mm/s, speed when on previous line there are many burnt neighbors
 #define BURN_START_DELAY_MIN 0.250  // s, additional time to start dark pixel after white
 #define BURN_START_DELAY_MAX 2.0  // s, additional time to start dark pixel after white
 
