@@ -152,7 +152,7 @@ bool confirmSelection(String *list, int idx) {
     bmpFile.close();
     draw_middle_label("Bad header,", 50, RED);
     draw_middle_label("bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", 70, RED);
-    draw_middle_label("not be compressed and be 24bit", 90, RED);
+    draw_middle_label("not compressed and 24bit", 90, RED);
     delay(2000);
     return false;
   }
@@ -176,7 +176,7 @@ bool confirmSelection(String *list, int idx) {
 
 bool selectSpeed(int8_t &resultSpeed) {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Set speed 1..10:", 50, WHITE);
+  draw_middle_label("Speed 1..10:", 50, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -230,7 +230,7 @@ bool selectSpeed(int8_t &resultSpeed) {
 
 bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Set sun movement direction:", 20, WHITE);
+  draw_middle_label("Sun travel direction:", 20, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -369,6 +369,7 @@ bool focusLens(IK2DOF& ik2dof) {
 
       if (pauseButton.isClicked()) {
         pause = !pause;
+        Tft.lcd_draw_rect(pauseButton.x + 3, pauseButton.y + 3, pauseButton.width - 6, pauseButton.height - 6, pause ? GREEN : BLACK);
       }
 
       return false;
@@ -462,11 +463,30 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
     const float sunSpeed = getSunSpeed(month);
     const unsigned long start = millis();
 
+    auto processButtonsFunc = [&backButton, &pauseButton]() {
+      if (backButton.isClicked())
+        return false;
+
+      if (pauseButton.isClicked()) {
+        Tft.lcd_draw_rect(pauseButton.x + 3, pauseButton.y + 3, pauseButton.width - 6, pauseButton.height - 6, GREEN);
+        
+        // Now wait when it will be pressed again, but also allow back
+        while (!pauseButton.isClicked()) {
+          delay(10);
+          if (backButton.isClicked())
+            return false;
+        }
+
+        Tft.lcd_draw_rect(pauseButton.x + 3, pauseButton.y + 3, pauseButton.width - 6, pauseButton.height - 6, BLACK);
+      }
+
+      return true;
+    };
+
     auto burnPixelFunc = [
       &ik2dof,
       &prevBurn,
-      &backButton,
-      &pauseButton,
+      &processButtonsFunc,
       sunSpeed,
       speedFactor,
       sunDirection,
@@ -511,7 +531,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       if (burn)
         // Apply user-set speed factor
-        speed = (speed * (speedFactor / 10.0));
+        speed = (speed * (speedFactor / 5.0));
 
       #ifdef DEBUG
         Serial.print("speed: ");
@@ -533,9 +553,9 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
       // Now move smoothly
-      const uint16_t dT = 20;  // ms
+      const uint16_t dT = 10;  // ms
       const unsigned long burnTimeMs = burnTime * 1000.0;  // s to ms
-      const uint16_t steps = burnTimeMs / 20;
+      const uint16_t steps = burnTimeMs / dT;
 
       float startX = ik2dof.x();
       float startY = ik2dof.y();
@@ -546,7 +566,12 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       for (uint16_t burnStep = 0; burnStep < steps; burnStep++) {
         // Move lens interpolated
         ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
-        delay(dT - (millis() - (startBurnTime + dT * burnStep)));
+        int remainingDeltaTDelay = dT - (millis() - (startBurnTime + dT * burnStep));
+        if (remainingDeltaTDelay > 0)
+          delay(remainingDeltaTDelay);
+        
+        if (!processButtonsFunc())
+          return false;
       }
 
       // Move lens to final pos
@@ -561,22 +586,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
       prevBurn = burn;
 
-      if (backButton.isClicked())
+      if (!processButtonsFunc())
         return false;
-
-      if (pauseButton.isClicked()) {
-        // Wait for it to be released
-        while (pauseButton.isClicked()) {
-          delay(10);
-        }
-
-        // Now wait when it will be pressed again, but also allow back
-        while (!pauseButton.isClicked()) {
-          delay(10);
-          if (backButton.isClicked())
-            return false;
-        }
-      }
 
       return true;
     };

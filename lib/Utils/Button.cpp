@@ -4,23 +4,23 @@
 #include <LCD.h>
 
 Button::Button(int x, int y, int w, int h, const char* label) 
-        : _x(x)
-        , _y(y)
-        , _width(w)
-        , _height(h)
+        : x(x)
+        , y(y)
+        , width(w)
+        , height(h)
         , _labelText(label) 
 {
-    Tft.lcd_draw_rect(_x, _y, _width, _height, YELLOW); // Outline
-    Tft.lcd_draw_rect(_x+1, _y+1, _width-2, _height-2, ORANGE);
+    Tft.lcd_draw_rect(x, y, width, height, YELLOW); // Outline
+    Tft.lcd_draw_rect(x+1, y+1, width-2, height-2, ORANGE);
     // Text at the center
-    Tft.lcd_display_string(_x + (_width - strlen(label) * 8) / 2, _y + (_height - 16) / 2, (const uint8_t *)label, FONT_1608, WHITE);
+    Tft.lcd_display_string(x + (width - strlen(label) * 8) / 2, y + (height - 16) / 2, (const uint8_t *)label, FONT_1608, WHITE);
 }
 
 bool Button::isClicked() {
     const bool pressed = isPressed();
     if (pressed != _prevPressed) {
         // Give feedback in the color of outline
-        Tft.lcd_draw_rect(_x, _y, _width, _height, pressed ? BROWN : YELLOW);
+        Tft.lcd_draw_rect(x, y, width, height, pressed ? BROWN : YELLOW);
 
         // Debounce and ensure there is time to see the color change
         if (pressed)
@@ -40,14 +40,14 @@ bool Button::isClicked() {
 }
 
 bool Button::isPressed() {
-    uint16_t x, y;
-    if (Tp.is_pressed(x, y)) {
+    uint16_t x_, y_;
+    if (Tp.is_pressed(x_, y_)) {
         // Keep pressed state even if coordinates moved outside
         if (_prevPressed)
             return true;
 
         // Check if the touch coordinates are within the button bounds
-        if (x >= _x && x <= _x + _width && y >= _y && y <= _y + _height) {
+        if (x_ >= x && x_ <= x + width && y_ >= y && y_ <= y + height) {
             return true;
         }
     }
