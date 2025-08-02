@@ -460,7 +460,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
     ik2dof.write(LENS_X_MIN, LENS_Y_MIN);
     bool done = true;
   #else
-    bool prevBurn = false;
     const float sunSpeed = getSunSpeed(month);
     const unsigned long start = millis();
 
@@ -486,7 +485,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
     auto burnPixelFunc = [
       &ik2dof,
-      &prevBurn,
       &processButtonsFunc,
       sunSpeed,
       speedFactor,
@@ -496,21 +494,15 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
       int imageX, 
       int imageY, 
       bool burn,
+      bool prevBurn,
       bool nextBurn,
-      BitSet<IMAGE_WIDTH> &prevLine,
-      bool leftToRight
+      BitSet<IMAGE_WIDTH> &prevLine
     ){
       // Calculate lens position
       float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
       float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
       const float timeDeltaSec = (float)(millis() - start) / 1000;      
       offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
-
-      // Backlash compensation
-      if (!leftToRight) {
-        lensX += REVERSE_MOVE_X_COMPENSATION;
-        lensY += REVERSE_MOVE_Y_COMPENSATION;
-      }
 
       // If there are many neighbor pixels burnt already, area is already dark and
       // burn will happen quicker
@@ -520,7 +512,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         (prevLine.get(imageX - 1) ? 1 : 0) +
         (prevLine.get(imageX    ) ? 1 : 0) +
         (prevLine.get(imageX + 1) ? 1 : 0) 
-          > 2;
+          > 1;
 
       // Stop horizontal lines 1pix earlier, because we always overburn
       const bool burnAux = burn && !(prevBurn && burn && !nextBurn);
@@ -552,7 +544,11 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       // Now calculate the delay we should stay at this pixel for actual 
       // burn to happen before moving to the next one
-      float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
+      float startX = ik2dof.x();
+      float startY = ik2dof.y();
+      float moveDistance = sqrt((lensX - startX)*(lensX - startX) + (lensY - startY)*(lensY - startY));
+
+      float burnTime = moveDistance / speed;  // In seconds
 
       // Apply burning start delay
       if (burnAux && !prevBurn && !prevLineBurnt) {
@@ -563,8 +559,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         const uint16_t steps = (burnTime * 1000) / dT;
 
         if (steps > 0) {
-          float startX = ik2dof.x();
-          float startY = ik2dof.y();
           float dX = (lensX - startX) / steps;
           float dY = (lensY - startY) / steps;
 
@@ -592,7 +586,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       // Display final pixel on a progress image
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
-      prevBurn = burn;
 
       if (!processButtonsFunc())
         return false;

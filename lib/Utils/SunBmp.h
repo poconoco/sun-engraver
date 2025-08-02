@@ -23,10 +23,9 @@ class SunBmp {
             uint16_t buffidx = 0;
 
             // Move lens to start position
-            burnPixel(0, 0, false, false, burnMask[0], true);
+            burnPixel(0, 0, false, false, false, burnMask[0]);
             delay(250);
 
-            bool leftToRight = true;
             for (uint16_t y = 0; y < IMAGE_HEIGHT; y++) {
                 buffidx = 0;
 
@@ -42,35 +41,35 @@ class SunBmp {
                     buffidx += 3;
                 }
 
-                // now we need to traverse line zig-zagging
-                if (leftToRight) {
-                    for (uint16_t x = 0; x < IMAGE_WIDTH; x++)
-                        if (! burnPixel(
-                                  x, y, 
-                                  currentMask.get(x),
-                                  x + 1 < IMAGE_HEIGHT ? currentMask.get(x+1) : false,
-                                  prevMask,
-                                  leftToRight
-                              )
-                        ) {
-                            return false;
-                        }
-                } else { // zag
-                    for (int x = IMAGE_WIDTH - 1; x >= 0; x--)
-                        if (! burnPixel(
-                                  x, y, 
-                                  currentMask.get(x),
-                                  x - 1 >= 0 ? currentMask.get(x-1) : false,
-                                  prevMask,
-                                  leftToRight
-                              )
-                        ) {
-                            return false;
-                        }
+                bool prevBurn = false;
+                // now traverse along x
+                for (uint16_t x = 0; x < IMAGE_WIDTH; x++) {
+                    const bool burn = currentMask.get(x);
+                    const bool nextBurn = x + 1 < IMAGE_HEIGHT ? currentMask.get(x+1) : false;
+                    if (! burnPixel(
+                                x, y, 
+                                burn,
+                                prevBurn,
+                                nextBurn,
+                                prevMask
+                            )
+                    ) {
+                        return false;
+                    }
+
+                    prevBurn = burn;
                 }
 
+                // rewind
+                burnPixel(
+                    0, y, 
+                    false,
+                    false,
+                    false,
+                    prevMask
+                );
+
                 currentMaskIdx = (currentMaskIdx + 1) % 2;
-                leftToRight = !leftToRight;
             }
 
             return true;
