@@ -32,10 +32,6 @@
 #define BURN_START_DELAY_MIN 0.250  // s, additional time to start dark pixel after white
 #define BURN_START_DELAY_MAX 2.0  // s, additional time to start dark pixel after white
 
-// On reverse move (right-to-left), lens sags down and right due to backlash, compensate for this
-#define REVERSE_MOVE_X_COMPENSATION -1.3
-#define REVERSE_MOVE_Y_COMPENSATION 1.5
-
 #define ARM1_STRAIGHT_BRACKET_ANGLE 88
 #define ARM2_STRAIGHT_BRACKET_ANGLE 90
 #define ARM2_BRACKET_TO_LENS_ANGLE 60
