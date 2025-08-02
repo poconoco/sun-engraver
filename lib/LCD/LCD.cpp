@@ -255,12 +255,7 @@ void TFT::lcd_display_string(uint16_t hwXpos, //specify x position.
                          const uint8_t *pchString,  //a pointer to string
                          uint8_t chSize,    // the size of the string 
                          uint16_t hwColor)  // specify the color of the string 
-{
-
-	if (hwXpos >= LCD_WIDTH || hwYpos >= LCD_HEIGHT) {
-		return;
-	}
-	
+{	
     while (*pchString != '\0') {       
         if (hwXpos > (LCD_WIDTH - chSize / 2)) {
 			hwXpos = 0;
