@@ -29,8 +29,8 @@
 #define SPEED_SKIP 75  // mm/s
 #define SPEED_BURN 2.0  // mm/s
 #define SPEED_BURN_WHEN_DARK_NEIGHBORS 3.5  // mm/s, speed when on previous line there are many burnt neighbors
-#define BURN_START_DELAY_MIN 0.200  // s, additional time to start dark pixel after white
-#define BURN_START_DELAY_MAX 1.0  // s, additional time to start dark pixel after white
+#define BURN_START_DELAY_MIN 0.250  // s, additional time to start dark pixel after white
+#define BURN_START_DELAY_MAX 1.500  // s, additional time to start dark pixel after white
 
 // On reverse move (right-to-left), lens sags down and right due to backlash, compensate for this
 #define REVERSE_MOVE_Y_COMPENSATION 2.0
