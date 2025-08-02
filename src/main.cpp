@@ -9,6 +9,7 @@
 
 //#define CALIBRATE_TOUCH
 //#define CALIBRATE_SERVO_ANGLES
+//#define CALIBRATE_SUN_MOVEMENT_COMPENSATION
 //#define SKIP_BURNING
  
 #include "Touch.h"
@@ -56,8 +57,8 @@ void setup() {
     servoArm1.attach();
     servoArm2.attach();
 
-    servoArm1.writeFloat(180);
-    servoArm2.writeFloat(90);
+    servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
+    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE);
 
     // servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
     // servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
@@ -507,8 +508,8 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       // Backlash compensation
       if (!leftToRight) {
-        lensY += REVERSE_MOVE_Y_COMPENSATION;
         lensX += REVERSE_MOVE_X_COMPENSATION;
+        lensY += REVERSE_MOVE_Y_COMPENSATION;
       }
 
       // If there are many neighbor pixels burnt already, area is already dark and
@@ -522,14 +523,13 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
           > 2;
 
       // Stop horizontal lines 1pix earlier, because we always overburn
-      if (prevBurn && burn && !nextBurn)
-        burn = false;
+      const bool burnAux = burn && !(prevBurn && burn && !nextBurn);
 
-      float speed = burn ? (prevLineBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
-                                          : SPEED_BURN) 
-                         : SPEED_SKIP;  // In mm/second
+      float speed = burnAux ? (prevLineBurnt ? SPEED_BURN_WHEN_DARK_NEIGHBORS 
+                                             : SPEED_BURN) 
+                            : SPEED_SKIP;  // In mm/second
 
-      if (burn)
+      if (burnAux)
         // Apply user-set speed factor
         speed = (speed * (speedFactor / 5.0));
 
@@ -538,40 +538,47 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
         Serial.println(speed);
       #endif
         
-      // Now calculate the delay we should stay at this pixel for actual 
-      // burn to happen before moving to the next one
-      float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
-
-      // Apply burning start delay
-      if (burn && !prevBurn && !prevLineBurnt) {
-        burnTime += mapFloat(speedFactor, 1, 10, BURN_START_DELAY_MAX, BURN_START_DELAY_MIN);
-      }
+      #ifdef CALIBRATE_SUN_MOVEMENT_COMPENSATION
+        imageX = mapFloat(lensX, LENS_X_MIN, LENS_X_MAX, 0, IMAGE_WIDTH);
+        imageY = mapFloat(lensY, LENS_Y_MIN, LENS_Y_MAX, 0, IMAGE_HEIGHT);
+      #endif
 
       // Display yellow pixel on a progress image
       const uint16_t progressViewX = (Tft.LCD_WIDTH - IMAGE_WIDTH * 2) / 2 + imageX * 2;
       const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-      // Now move smoothly
-      const uint16_t dT = 10;  // ms
-      const unsigned long burnTimeMs = burnTime * 1000.0;  // s to ms
-      const uint16_t steps = burnTimeMs / dT;
-
-      float startX = ik2dof.x();
-      float startY = ik2dof.y();
-      float dX = (lensX - startX) / steps;
-      float dY = (lensY - startY) / steps;
-
       const unsigned long startBurnTime = millis();
-      for (uint16_t burnStep = 0; burnStep < steps; burnStep++) {
-        // Move lens interpolated
-        ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
-        int remainingDeltaTDelay = dT - (millis() - (startBurnTime + dT * burnStep));
-        if (remainingDeltaTDelay > 0)
-          delay(remainingDeltaTDelay);
-        
-        if (!processButtonsFunc())
-          return false;
+
+      // Now calculate the delay we should stay at this pixel for actual 
+      // burn to happen before moving to the next one
+      float burnTime = PIXEL_SIZE_MM / speed;  // In seconds
+
+      // Apply burning start delay
+      if (burnAux && !prevBurn && !prevLineBurnt) {
+        burnTime += mapFloat(speedFactor, 1, 10, BURN_START_DELAY_MAX, BURN_START_DELAY_MIN);
+      } else {
+        // Now move smoothly
+        const uint16_t dT = 10;  // ms
+        const uint16_t steps = (burnTime * 1000) / dT;
+
+        if (steps > 0) {
+          float startX = ik2dof.x();
+          float startY = ik2dof.y();
+          float dX = (lensX - startX) / steps;
+          float dY = (lensY - startY) / steps;
+
+          for (uint16_t burnStep = 0; burnStep < steps; burnStep++) {
+            // Move lens interpolated
+            ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
+            long remainingDeltaTDelay = dT - (millis() - (startBurnTime + dT * burnStep));
+            if (remainingDeltaTDelay > 0)
+              delay(remainingDeltaTDelay);
+            
+            if (!processButtonsFunc())
+              return false;
+          }
+        }
       }
 
       // Move lens to final pos
@@ -579,8 +586,9 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, float sunDirection, int8_t month, S
 
       // Remaining delay
       unsigned long actualBurnTime = millis() - startBurnTime;
-      if (burnTimeMs > actualBurnTime)
-        delay(burnTimeMs - actualBurnTime);
+      long remainingBurnTime = burnTime * 1000 - actualBurnTime;
+      if (remainingBurnTime > 0)
+        delay(remainingBurnTime);
 
       // Display final pixel on a progress image
       drawQuadPoint(progressViewX, progressViewY, burn ? BLACK : WHITE);
