@@ -42,7 +42,7 @@ void drawArrow(uint16_t cx, uint16_t cy, uint16_t length, float angleDeg, uint16
 void offsetXY(float& x, float& y, float angleDeg, float distance);
 float getSunSpeed(int8_t month);
 void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed, float timeDeltaSec);
-void draw_middle_label(const char *label, int y, uint16_t color);
+void drawMiddleLabel(const char *label, int y, uint16_t color);
 
 void setup() {
 
@@ -144,7 +144,7 @@ bool confirmSelection(String *list, int idx) {
 
   if (! bmpFile) {
       bmpFile.close();
-      draw_middle_label("Failed to open file!", 50, RED);
+      drawMiddleLabel("Failed to open file!", 50, RED);
       delay(2000);
       return false;
   }
@@ -153,9 +153,9 @@ bool confirmSelection(String *list, int idx) {
 
   if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
-    draw_middle_label("Bad header,", 50, RED);
-    draw_middle_label("bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", 70, RED);
-    draw_middle_label("not compressed and 24bit", 90, RED);
+    drawMiddleLabel("Bad header,", 50, RED);
+    drawMiddleLabel("bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", 70, RED);
+    drawMiddleLabel("not compressed and 24bit", 90, RED);
     delay(2000);
     return false;
   }
@@ -179,7 +179,7 @@ bool confirmSelection(String *list, int idx) {
 
 bool selectSpeed(int8_t &resultSpeed, bool &halfScan) {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Speed 1..10:", 50, WHITE);
+  drawMiddleLabel("Speed 1..10:", 50, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -254,7 +254,7 @@ bool selectSpeed(int8_t &resultSpeed, bool &halfScan) {
 
 bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Sun travel direction:", 20, WHITE);
+  drawMiddleLabel("Sun travel direction:", 20, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -268,7 +268,7 @@ bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
   Button dirMinus(cx + 80 - 15, cy - 15 + dirCtlOffset, 30, 30, ">");
   Button dirPlus(cx - 80 - 15, cy - 15 + dirCtlOffset, 30, 30, "<");
 
-  draw_middle_label("Month:", cy - 35 + monCtlOffset, WHITE);
+  drawMiddleLabel("Month:", cy - 35 + monCtlOffset, WHITE);
 
   Button monMinus(cx - 80 - 15, cy - 15 + monCtlOffset, 30, 30, "-");
   Button monPlus(cx + 80 - 15, cy - 15 + monCtlOffset, 30, 30, "+");
@@ -350,7 +350,7 @@ bool selectSunDirection(int &resultDirection, int8_t &resultMonth) {
 
 bool prepFocusLens() {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Prepare to focus", 50, WHITE);
+  drawMiddleLabel("Prepare to focus", 50, WHITE);
 
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "OK >");
   Button backButton(20, Tft.LCD_HEIGHT - 35, 80, 30, "< Back");
@@ -368,7 +368,7 @@ bool prepFocusLens() {
 
 bool focusLens(IK2DOF& ik2dof) {
   Tft.lcd_clear_screen(BLACK);
-  draw_middle_label("Focus", 50, WHITE);
+  drawMiddleLabel("Focus", 50, WHITE);
 
   Button pauseButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 75, 80, 30, "Pause");
   Button confirmButton(Tft.LCD_WIDTH - 100, Tft.LCD_HEIGHT - 35, 80, 30, "BURN >");
@@ -484,7 +484,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
     bool done = true;
   #else
     const float sunSpeed = getSunSpeed(month);
-    const unsigned long start = millis();
+    const unsigned long startTime = millis();
 
     auto processButtonsFunc = [&backButton, &pauseButton]() {
       if (backButton.isClicked())
@@ -512,7 +512,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
       sunSpeed,
       speedFactor,
       sunDirection,
-      start
+      startTime
     ] (
       int imageX, 
       int imageY, 
@@ -521,10 +521,12 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
       bool nextBurn,
       BitSet<IMAGE_WIDTH> &prevLine
     ){
+      const unsigned long pixelBurnStartTime = millis();
+
       // Calculate lens position
       float lensX = mapFloat(imageX, 0, IMAGE_WIDTH, LENS_X_MIN, LENS_X_MAX);
       float lensY = mapFloat(imageY, 0, IMAGE_HEIGHT, LENS_Y_MIN, LENS_Y_MAX);
-      const float timeDeltaSec = (float)(millis() - start) / 1000;      
+      const float timeDeltaSec = (float)(pixelBurnStartTime - startTime) / 1000.0;      
       offsetBySunMovement(lensX, lensY, sunDirection, sunSpeed, timeDeltaSec);
 
       // If there are many neighbor pixels burnt already, area is already dark and
@@ -564,8 +566,6 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
       const uint16_t progressViewY = (Tft.LCD_HEIGHT - ((Tft.LCD_HEIGHT - IMAGE_HEIGHT * 2) / 2 + 20)) - imageY * 2;
       drawQuadPoint(progressViewX, progressViewY, YELLOW);
 
-      const unsigned long startBurnTime = millis();
-
       // Now calculate the delay we should stay at this pixel for actual 
       // burn to happen before moving to the next one
       float startX = ik2dof.x();
@@ -589,7 +589,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
           for (uint16_t burnStep = 0; burnStep < steps; burnStep++) {
             // Move lens interpolated
             ik2dof.write(startX + dX * burnStep, startY + dY * burnStep);
-            long remainingDeltaTDelay = dT - (millis() - (startBurnTime + dT * burnStep));
+            long remainingDeltaTDelay = dT - (millis() - (pixelBurnStartTime + dT * burnStep));
             if (remainingDeltaTDelay > 0)
               delay(remainingDeltaTDelay);
             
@@ -603,7 +603,7 @@ bool doBurn(IK2DOF& ik2dof, int speedFactor, bool halfScan, float sunDirection, 
       ik2dof.write(lensX, lensY);
 
       // Remaining delay
-      unsigned long actualBurnTime = millis() - startBurnTime;
+      unsigned long actualBurnTime = millis() - pixelBurnStartTime;
       long remainingBurnTime = burnTime * 1000 - actualBurnTime;
       if (remainingBurnTime > 0)
         delay(remainingBurnTime);
@@ -880,7 +880,7 @@ void offsetBySunMovement(float &x, float &y, float sunDirection, float sunSpeed,
   y += sin(angleRad) * distance;  
 }
 
-void draw_middle_label(const char *label, int y, uint16_t color) {
+void drawMiddleLabel(const char *label, int y, uint16_t color) {
   size_t len = strlen(label);
   Tft.lcd_display_string((Tft.LCD_WIDTH - len*8)/2, y, (const uint8_t*)label, FONT_1608, color);
 }
