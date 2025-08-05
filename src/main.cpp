@@ -154,8 +154,8 @@ bool confirmSelection(String *list, int idx) {
   if(! sunBmp.bmpReadHeader()) {
     bmpFile.close();
     drawMiddleLabel("Bad header,", 50, RED);
-    drawMiddleLabel("bmp must be " STR(SUN_BMP_WIDTH) "x" STR(SUN_BMP_HEIGHT) ",", 70, RED);
-    drawMiddleLabel("not compressed and 24bit", 90, RED);
+    drawMiddleLabel("bmp must be " STR(IMAGE_WIDTH) "x" STR(IMAGE_HEIGHT) ",", 80, RED);
+    drawMiddleLabel("not compressed and 24bit", 110, RED);
     delay(2000);
     return false;
   }
