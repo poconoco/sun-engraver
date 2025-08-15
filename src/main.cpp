@@ -58,10 +58,7 @@ void setup() {
     servoArm2.attach();
 
     servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
-    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE);
-
-    // servoArm1.writeFloat(ARM1_STRAIGHT_BRACKET_ANGLE);
-    // servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
+    servoArm2.writeFloat(ARM2_STRAIGHT_BRACKET_ANGLE - ARM2_BRACKET_TO_LENS_ANGLE);
 
     while (true)
       delay(1000);
