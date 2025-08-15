@@ -6,6 +6,11 @@
 
 ## Bill of materials
 
+Servo angular accuracy is the key here! Better digital and with as low deadband as possible.
+
+I used cheap digital ones, E-power Digital DC5535. They are the same size as cheapest MG995/MG996R, have a bit better build quality and less backlash which is important. But the deadband is still not great. Servo cases will fit eitehr DC5535 or MG995 or MG996R.
+
+
 | Name                        | Count |
 |-----------------------------|-------|
 | M2 Nut                      | 2     |
