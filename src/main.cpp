@@ -50,8 +50,8 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-  FloatServo servoArm1(ARM1_PIN, 120, 2470);
-  FloatServo servoArm2(ARM2_PIN, 630, 2570);
+  FloatServo servoArm1(ARM1_PIN, ARM1_MIN_PULSE, ARM1_MAX_PULSE);
+  FloatServo servoArm2(ARM2_PIN, ARM2_MIN_PULSE, ARM2_MAX_PULSE);
 
   #if defined(CALIBRATE_SERVO_ANGLES)
     servoArm1.attach();

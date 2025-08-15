@@ -37,6 +37,20 @@
 
 #define ARM1_STRAIGHT_BRACKET_ANGLE 88
 #define ARM2_STRAIGHT_BRACKET_ANGLE 90
+
+#define ARM1_MIN_PULSE 500
+#define ARM1_MAX_PULSE 2500
+
+#define ARM2_MIN_PULSE 500
+#define ARM2_MAX_PULSE 2500
+
+// #define ARM1_MIN_PULSE 120
+// #define ARM1_MAX_PULSE 2470
+
+// #define ARM2_MIN_PUSE 630
+// #define ARM2_MAX_PULSE 2570
+
+
 #define ARM2_BRACKET_TO_LENS_ANGLE 60
 
 // This latitude and lens focal length is used to estimate sun movement speed
