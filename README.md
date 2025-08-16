@@ -1,4 +1,8 @@
-# Assembly instructions for Sun Engraver Mark1
+# Sun Engraver Mark1
+
+WARNING!
+
+Lens with sunlight can be a source of FIRE! Do not leave lens uncovered unattended in the sunlight. As well as do not leave device described here unattended while working, or with open lens when sun can reach it. You are doing everything on your own responsibility and your own risk, take all the necessary care.
 
 ## Wiring
 
@@ -48,6 +52,8 @@ Do not print in PLA, device is only used in the direct sun lights, and PLA heats
 I used PETG without any issues.
 
 The only piece that needs support is "Screen top section.stl". Should be printed with top face down for the best surface, and use support for recesses.
+
+### Step by step assembly
 
 Srew the bracket to a second servo case (which does not have GoPro mount). Note the holes size the bracket, only one orientation is correct!
 ![local image](<readme-images/Screenshot 2025-08-15 085003.png>)
