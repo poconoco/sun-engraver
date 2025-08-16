@@ -50,86 +50,86 @@ I used PETG without any issues.
 The only piece that needs support is "Screen top section.stl". Should be printed with top face down for the best surface, and use support for recesses.
 
 Srew the bracket to a second servo case (which does not have GoPro mount). Note the holes size the bracket, only one orientation is correct!
-![local image](readme-images/<Screenshot 2025-08-15 085003.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085003.png>)
 
 Insert servo into the case, carefully guide wires out of the hole and through wire channel:
-![local image](readme-images/<Screenshot 2025-08-15 085022.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085022.png>)
 
 Put top cover, the one with 2 holes on the side (other ones don't have 2 holes), screw it in with nuts and bolts:
-![local image](readme-images/<Screenshot 2025-08-15 085033.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085033.png>)
 
 Put the first servo (into case with GoPro mount) in as well, also put and screw in top cover:
-![local image](readme-images/<Screenshot 2025-08-15 085114.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085114.png>)
 
 Press fit bearing to the first servo case:
-![local image](readme-images/<Screenshot 2025-08-15 085220.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085220.png>)
 
 Press fit bearing to the second servo case:
-![local image](readme-images/<Screenshot 2025-08-15 085239.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085239.png>)
 
 Put the bracket of the second servo over the servo axle and bearing of the first servo. It'll require to bend it a lot, but if you print with PETG and enough temperature, should be fine. Make sure there is an air gap between the bracket and the surfaces of servo case, so it is not rubbing on them.
 
 Note! For easier adjustment later, move servo to 90 degree position using servo tester or simple arduino circuit.
-![local image](readme-images/<Screenshot 2025-08-15 085314.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085314.png>)
 
 Clamp down the servo axle inside the bracket. Note that you may need to loosen it later when you'll calibrate servo angles
-![local image](readme-images/<Screenshot 2025-08-15 085329.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085329.png>)
 
 Clamp down the bearing:
-![local image](readme-images/<Screenshot 2025-08-15 085339.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085339.png>)
 
 Press fit lens into it's holder, from the bottom. Bottom is where the weird stomp is:
-![local image](readme-images/<Screenshot 2025-08-15 085414.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085414.png>)
 
 Mount lens pivot axle to the lens holder:
-![local image](readme-images/<Screenshot 2025-08-15 085428.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085428.png>)
 
 Insert heat inserts of the pivot clamp piece. They can be replaced with usual M3 nuts, but it will be harder to afjust tension
-![local image](readme-images/<Screenshot 2025-08-15 085504.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085504.png>)
 
 Mount that clamp piece to the new servo bracket. Heat inserts should face the bracket, and be flush within the surface for straight mounting:
-![local image](readme-images/<Screenshot 2025-08-15 085524.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085524.png>)
 
 Now get the second piece of the clamp and clamp pivot axle with it, using 2 screws:
-![local image](readme-images/<Screenshot 2025-08-15 085542.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085542.png>)
 
 Put the bracket of the lens onto the second servo the same way, by bending the bracket a lot.
 
 Note! For easier adjustment later, put the servo into 90 degree position as well. Then clamp axle and bearing the same way you did with the first bracket.
-![local image](readme-images/<Screenshot 2025-08-15 085618.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085618.png>)
 
 Insert heat inserts to the bottom screen section, from the inside:
-![local image](readme-images/<Screenshot 2025-08-15 085645.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085645.png>)
 
 Now mount the batteries and charger. I used battery holder, and a hot glue gun. Their wiring should be done before mounting.
-![local image](readme-images/<Screenshot 2025-08-15 085722.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085722.png>)
 
 Mount the servo assembly to the screen bottom section. Carefully guide servo wires through the hole:
-![local image](readme-images/<Screenshot 2025-08-15 085757.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085757.png>)
 
 Now mount screen middle section with 4 screws, be sure to have all the needed wires out (to toggle switch, to battery level indicator, and to Arduino board (servo signals, raw power in and Ground))
-![local image](readme-images/<Screenshot 2025-08-15 085845.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085845.png>)
 
 Now mount the Arduino board. I soldered the wires to the board, because dupont pins are used by the screen hat.
 Put the screen hat on the Arduino board.
-![local image](readme-images/<Screenshot 2025-08-15 085845-2.png>)
+![local image](<readme-images/Screenshot 2025-08-15 085845-2.png>)
 
 Now mount the toggle switch and the battery level indicator to the screen top section. It may need to cut some corners to get it in. Be prepared to use scalpel or similar sharp tool.
 Battery indicator was too bright for my liking, so I put a 2 layer screen in front of it. Model is provided, usage is optional.
-![local image](readme-images/<Screenshot 2025-08-15 090019.png>)
+![local image](<readme-images/Screenshot 2025-08-15 090019.png>)
 
 Now mount the front panel to the rest of screen assembly. Note that there are 3 long screws, and one short - for the corner with a cutout for switch.
-![local image](readme-images/<Screenshot 2025-08-15 090106.png>)
+![local image](<readme-images/Screenshot 2025-08-15 090106.png>)
 
 Now you can put stylus into its holder:
-![local image](readme-images/<Screenshot 2025-08-15 090139.png>)
+![local image](<readme-images/Screenshot 2025-08-15 090139.png>)
 
 The focusing frame is optional, it is used to burn images on plywood pieces. You can use the device without it outdoors, but you'll have to place work piece manually carefully.
 Press-fit the M5 nut, and screw in the photo thread adapter:
-![local image](readme-images/<Screenshot 2025-08-15 090215.png>)
+![local image](<readme-images/Screenshot 2025-08-15 090215.png>)
 
 Now you can mount the device to this focusing frame. Be sure to put the servo flat on the frame surface, it should not tilt at the gopro mount point.
-![local image](readme-images/<Screenshot 2025-08-15 090448.png>)
+![local image](<readme-images/Screenshot 2025-08-15 090448.png>)
 
 The mechanics is ready! Now burn the code to the arduino board, and proceed with servo calibration.
 
